@@ -1,0 +1,34 @@
+# Assignment brief (not part of the project)
+Zonko Labs Engineering Assignment.pdf
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+.vercel/
+
+# browser-use / agent artifacts (may contain screenshots or page data)
+agent_history*.json
+recordings/
+traces/
+*.gif
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
