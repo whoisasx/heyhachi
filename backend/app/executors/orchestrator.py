@@ -297,7 +297,14 @@ class Orchestrator:
                     "body": summary,
                 },
             )
-            return json.dumps({"decision": answer.get("decision", "reject")})
+            decision = answer.get("decision", "reject")
+            if decision == "approve":
+                site = normalize_site(str(args.get("site", "")))
+                await ctx.set_marker(
+                    f"action_{len(ctx.markers) + 1}",
+                    {"site": site, "summary": summary, "state": "approved"},
+                )
+            return json.dumps({"decision": decision})
 
         if name == "request_access":
             site, kind = normalize_site(str(args.get("site", ""))), args.get("kind")
@@ -331,11 +338,64 @@ class Orchestrator:
             instruction = str(args.get("instruction", "")).strip()
             if not site or not instruction:
                 raise ToolError("site and instruction are required")
-            await ctx.progress(f"Working on {site}")
-            result = await self.browser.run(ctx, site=site, instruction=instruction)
-            return json.dumps(result)
+            return await self._browser_step(ctx, site, instruction)
 
         raise ToolError(f"Unknown tool '{name}'. Available: {[t['name'] for t in TOOLS]}")
+
+    async def _browser_step(self, ctx: TaskContext, site: str, instruction: str) -> str:
+        """Run a browser task, guarding approved irreversible actions with markers.
+
+        approved -> started (written before the browser acts) -> done (after).
+        Found "started" on entry: an earlier run was interrupted mid-action and it
+        may have happened. Don't repeat it; check the site read-only instead, and
+        make Claude get a fresh approval before trying again.
+        """
+        interrupted = _marker(ctx, site, ("started",))
+        if interrupted:
+            key, marker = interrupted
+            await ctx.set_marker(key, {**marker, "state": "unknown"})
+            await ctx.progress("Checking whether the earlier attempt already went through")
+            result = await self.browser.run(
+                ctx, site=site, instruction=CHECK_INSTRUCTION.format(summary=marker["summary"])
+            )
+            return json.dumps(
+                {
+                    **result,
+                    "note": (
+                        f"An earlier attempt at '{marker['summary']}' was interrupted, so "
+                        "your instruction was NOT run. This was a read-only check of whether "
+                        "it already happened. If it did, don't repeat it. If it didn't, call "
+                        "confirm_action again before retrying."
+                    ),
+                }
+            )
+
+        approved = _marker(ctx, site, ("approved",))
+        if approved:
+            key, marker = approved
+            await ctx.set_marker(key, {**marker, "state": "started"})
+        await ctx.progress(f"Working on {site}")
+        result = await self.browser.run(ctx, site=site, instruction=instruction)
+        if approved:
+            await ctx.set_marker(key, {**marker, "state": "done", "ok": bool(result.get("ok"))})
+        return json.dumps(result)
+
+
+CHECK_INSTRUCTION = (
+    "Read-only check. Do NOT pay, order, send, submit, delete, or change anything. "
+    "Find out whether this already happened: {summary}. Look at the relevant history "
+    "page (orders, sent items, activity). Report clearly whether it happened, with details."
+)
+
+
+def _marker(
+    ctx: TaskContext, site: str, states: tuple[str, ...]
+) -> tuple[str, dict[str, Any]] | None:
+    """The oldest marker for `site` in one of `states`."""
+    for key, marker in ctx.markers.items():
+        if marker.get("site") == site and marker.get("state") in states:
+            return key, marker
+    return None
 
 
 class ToolError(Exception):

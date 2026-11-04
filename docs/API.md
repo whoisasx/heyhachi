@@ -247,7 +247,13 @@ Request:
 { "mode": "resume" }
 ```
 - `resume`: continue the same task from its checkpoint (for `failed` with a retryable error, or after `waiting_timeout`). Returns the same task, `202`.
-- `restart`: start a **new** task from the same user message, ignoring the old checkpoint. Returns the new task, `202`.
+- `restart`: start a **new** task from the same user message, ignoring the old checkpoint. The message moves to the new task. Returns the new task, `202`. Also allowed for `cancelled` tasks.
+
+Response: `202 {"id": "…", "status": "queued", "events_url": "/v1/tasks/…/events"}`.
+Errors:
+- `409 task_not_retryable`: the task isn't failed/cancelled, or its error isn't retryable (e.g. `access_revoked`).
+- `409 task_not_resumable`: limits (`step_limit`, `time_limit`, `cost_limit`) and `too_many_attempts` can only `restart`.
+- `409 task_in_progress` / `429 too_many_active_tasks`: same rules as sending a message.
 
 Irreversible-action markers are always honored: a resumed task checks the site before repeating anything (ARCHITECTURE §9.2).
 
@@ -392,3 +398,4 @@ Found in `tasks.error.code` and `error` events.
 | Date | Change |
 |---|---|
 | 2026-11-04 | Initial API |
+| 2026-11-05 | `/tasks/{id}/retry` response and errors spelled out |

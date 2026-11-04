@@ -153,9 +153,9 @@ export function streamTask(
             if (seq <= lastSeq) return;
             lastSeq = seq;
             const data = msg.data ? JSON.parse(msg.data) : {};
-            if (msg.event === "status" && TERMINAL.includes(data.status)) ended = true;
+            // A resumed task has a "failed" in its history, so only the latest status counts.
+            if (msg.event === "status") ended = TERMINAL.includes(data.status);
             onEvent({ seq, type: msg.event, data });
-
           },
           onclose() {
             if (ended) throw new StreamClosed();

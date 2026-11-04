@@ -1,7 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { TERMINAL, streamTask, type Card, type TaskEvent, type TaskStatus } from "@/lib/api";
+import {
+  ApiError,
+  TERMINAL,
+  post,
+  streamTask,
+  type Card,
+  type TaskEvent,
+  type TaskStatus,
+} from "@/lib/api";
 import { CardView } from "./cards";
+
+// Limits and repeated crashes would hit the same wall again: only "Start over".
+const RESTART_ONLY = ["step_limit", "time_limit", "cost_limit", "too_many_attempts"];
+
+interface TaskError {
+  code: string;
+  message: string;
+  retryable: boolean;
+}
 
 const STATUS_LABEL: Record<TaskStatus, string> = {
   queued: "Starting",
@@ -24,6 +41,10 @@ export function TaskView({
 }) {
   const [events, setEvents] = useState<TaskEvent[]>([]);
   const [open, setOpen] = useState(!TERMINAL.includes(initialStatus));
+  const [stream, setStream] = useState(0); // bumped to reconnect after a resume
+  const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
+  const lastSeq = useRef(0);
   const finished = useRef(onFinished);
   useEffect(() => {
     finished.current = onFinished;
@@ -31,7 +52,8 @@ export function TaskView({
 
   useEffect(() => {
     let sawLive = false;
-    const stop = streamTask(taskId, 0, (event) => {
+    const stop = streamTask(taskId, lastSeq.current, (event) => {
+      lastSeq.current = Math.max(lastSeq.current, event.seq);
       // Ignore duplicates (reconnects can overlap).
       setEvents((prev) => (prev.some((e) => e.seq === event.seq) ? prev : [...prev, event]));
       if (event.type === "status") {
@@ -41,22 +63,30 @@ export function TaskView({
       }
     });
     return stop;
-  }, [taskId]);
+  }, [taskId, stream]);
 
   const view = useMemo(() => {
     let status: TaskStatus = initialStatus;
     let liveView: string | null = null;
-    let error: string | null = null;
+    let error: TaskError | null = null;
     const steps: string[] = [];
     const resolved = new Set<number>();
     const cards: { seq: number; card: Card }[] = [];
     for (const e of events) {
-      if (e.type === "status") status = e.data.status as TaskStatus;
+      if (e.type === "status") {
+        status = e.data.status as TaskStatus;
+        if (!TERMINAL.includes(status)) error = null; // resumed
+      }
       else if (e.type === "progress") steps.push(String(e.data.text));
       else if (e.type === "card") cards.push({ seq: e.seq, card: e.data as unknown as Card });
       else if (e.type === "card_resolved") resolved.add(Number(e.data.card_seq));
       else if (e.type === "live_view") liveView = (e.data.url as string) ?? null;
-      else if (e.type === "error") error = String(e.data.message ?? "Something went wrong.");
+      else if (e.type === "error")
+        error = {
+          code: String(e.data.code ?? "internal_error"),
+          message: String(e.data.message ?? "Something went wrong."),
+          retryable: Boolean(e.data.retryable),
+        };
     }
     const pending = [...cards].reverse().find((c) => !resolved.has(c.seq));
     const activeCard = status === "waiting_user" ? pending : undefined;
@@ -64,6 +94,29 @@ export function TaskView({
   }, [events, initialStatus]);
 
   const done = TERMINAL.includes(view.status);
+  const canRestart =
+    (view.status === "failed" && view.error?.retryable) || view.status === "cancelled";
+  const canResume =
+    view.status === "failed" && view.error?.retryable && !RESTART_ONLY.includes(view.error.code);
+
+  async function retry(mode: "resume" | "restart") {
+    setRetrying(true);
+    setRetryError(null);
+    try {
+      await post(`/tasks/${taskId}/retry`, { mode });
+      if (mode === "resume") {
+        setOpen(true);
+        setStream((n) => n + 1); // same task: listen again from the last event
+        finished.current(); // refresh the chat so it knows a task is running again
+      } else {
+        finished.current(); // new task: the chat reloads and shows it
+      }
+    } catch (err) {
+      setRetryError(err instanceof ApiError ? err.message : "Couldn't retry.");
+    } finally {
+      setRetrying(false);
+    }
+  }
   const tone =
     view.status === "failed"
       ? "text-danger"
@@ -116,7 +169,23 @@ export function TaskView({
       )}
 
       {view.error && view.status === "failed" && (
-        <p className="border-t border-border px-3 py-2 text-danger">{view.error}</p>
+        <p className="border-t border-border px-3 py-2 text-danger">{view.error.message}</p>
+      )}
+
+      {(canResume || canRestart) && (
+        <div className="flex flex-wrap items-center gap-2 border-t border-border px-3 py-2">
+          {canResume && (
+            <button className="btn-primary py-1.5" disabled={retrying} onClick={() => retry("resume")}>
+              Resume
+            </button>
+          )}
+          {canRestart && (
+            <button className="btn-ghost py-1.5" disabled={retrying} onClick={() => retry("restart")}>
+              Start over
+            </button>
+          )}
+          {retryError && <span className="text-xs text-danger">{retryError}</span>}
+        </div>
       )}
     </div>
   );

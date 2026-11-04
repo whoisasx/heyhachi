@@ -4,6 +4,8 @@
 - `TaskContext` is the only way an executor changes task state or talks to the user.
 - A single heartbeat loop marks every owned task alive.
 - `recover()` runs on startup and resumes or fails tasks left unfinished by a dead process.
+- A watchdog fails a task that has been *working* (not waiting for the user) too long.
+- `resume()` / `restart()` back the Retry card (docs/API.md `POST /tasks/{id}/retry`).
 """
 
 import asyncio
@@ -29,6 +31,7 @@ from app.models import (
     Credential,
     Message,
     Task,
+    TaskEvent,
     TaskInput,
 )
 
@@ -87,7 +90,16 @@ class TaskContext:
         self.attempt: int = task.attempt
         self.status: str = task.status
         self.waiting_for: dict[str, Any] | None = task.waiting_for
+        self.markers: dict[str, Any] = dict(task.markers or {})
         self.finished = False
+        # Working time = wall time minus time spent waiting for the user.
+        self._started = time.monotonic()
+        self._waited = 0.0
+        self._wait_began: float | None = None
+
+    def working_seconds(self) -> float:
+        waiting = time.monotonic() - self._wait_began if self._wait_began is not None else 0.0
+        return time.monotonic() - self._started - self._waited - waiting
 
     @property
     def session_factory(self):
@@ -120,6 +132,16 @@ class TaskContext:
             return
         await self._apply([("status", {"status": status})], changes={"status": status})
         self.status = status
+
+    async def set_marker(self, key: str, value: dict[str, Any]) -> None:
+        """Record an irreversible action's state (approved / started / done / unknown).
+
+        Written before and after the action, so a crash in between is detectable
+        (docs/ARCHITECTURE.md §9.1 rule 4).
+        """
+        markers = {**self.markers, key: value}
+        await self._apply([], changes={"markers": markers})
+        self.markers = markers
 
     async def save_checkpoint(self, checkpoint: dict[str, Any]) -> None:
         await self._apply([], changes={"checkpoint": checkpoint})
@@ -226,7 +248,12 @@ class TaskContext:
             }
 
         site = (self.waiting_for or {}).get("site") or ""
-        input_id, data = await self._runner._wait_for_input(self.task_id, card_seq, expires_at)
+        self._wait_began = time.monotonic()
+        try:
+            input_id, data = await self._runner._wait_for_input(self.task_id, card_seq, expires_at)
+        finally:
+            self._waited += time.monotonic() - self._wait_began
+            self._wait_began = None
         if kind == "otp":  # decrypted only here, in memory; the stored copy is wiped below
             data = {"code": await self._runner.read_otp(input_id, self.user_id, site)}
 
@@ -403,8 +430,25 @@ class TaskRunner:
 
     # ---- running ---------------------------------------------------------
 
+    async def _watchdog(self, ctx: TaskContext) -> None:
+        """Fail the task once its working time (waiting not counted) passes the limit."""
+        limit = self.settings.max_task_seconds
+        while True:
+            await asyncio.sleep(min(self.settings.watchdog_interval, limit))
+            if ctx.working_seconds() > limit:
+                task = self._tasks.get(ctx.task_id)
+                if task is not None:
+                    self._cancel_errors[ctx.task_id] = {
+                        "code": "time_limit",
+                        "message": "This task took too long, so I stopped it.",
+                        "retryable": True,
+                    }
+                    task.cancel()
+                return
+
     async def _run(self, ctx: TaskContext) -> None:
         task_id = ctx.task_id
+        watchdog = asyncio.create_task(self._watchdog(ctx), name=f"watchdog-{task_id}")
         try:
             await self.executor.run(ctx)
             if not ctx.finished:
@@ -449,6 +493,7 @@ class TaskRunner:
                 },
             )
         finally:
+            watchdog.cancel()
             self._tasks.pop(task_id, None)
             self._waiters.pop(task_id, None)
             self._cancel_requested.discard(task_id)
@@ -496,6 +541,67 @@ class TaskRunner:
                 "finished_at": func.now(),
             },
         )
+
+    # ---- retry -----------------------------------------------------------
+
+    async def resume(self, task_id: uuid.UUID) -> None:
+        """Continue a failed task from its checkpoint (same task, same events).
+
+        The attempt counter starts over; markers are kept, so an irreversible
+        action that was in flight is checked on the site, never repeated blindly.
+        """
+        await self.store.apply(
+            task_id,
+            worker_id=None,
+            only_if_status_in=("failed",),
+            events=[("progress", {"text": "Resuming"}), ("status", {"status": "queued"})],
+            changes={
+                "status": "queued",
+                "error": None,
+                "waiting_for": None,
+                "finished_at": None,
+                "attempt": 0,
+            },
+        )
+        await self.start(task_id)
+
+    async def restart(self, task_id: uuid.UUID) -> uuid.UUID:
+        """Start a new task for the same user message, ignoring the old checkpoint.
+
+        The user's message moves to the new task. Markers of actions that were
+        started but never confirmed done carry over, so they get checked first.
+        """
+        new_id = uuid.uuid4()
+        async with self.session_factory() as session, session.begin():
+            old = await session.get(Task, task_id, with_for_update=True)
+            if old is None or old.status not in ("failed", "cancelled"):
+                raise LostOwnership(str(task_id))
+            carried = {
+                key: {**value, "carried_from": str(task_id)}
+                for key, value in (old.markers or {}).items()
+                if value.get("state") in ("started", "unknown")
+            }
+            session.add(
+                Task(
+                    id=new_id,
+                    user_id=old.user_id,
+                    conversation_id=old.conversation_id,
+                    status="queued",
+                    markers=carried,
+                    last_event_seq=1,
+                )
+            )
+            await session.flush()
+            session.add(
+                TaskEvent(task_id=new_id, seq=1, type="status", payload={"status": "queued"})
+            )
+            await session.execute(
+                update(Message)
+                .where(Message.task_id == task_id, Message.role == "user")
+                .values(task_id=new_id)
+            )
+        await self.start(new_id)
+        return new_id
 
     # ---- user input and cancellation -------------------------------------
 

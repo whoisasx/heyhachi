@@ -130,6 +130,7 @@ export function ChatApp({ initialId }: { initialId: string | null }) {
                 <Bubble role={m.role} text={m.content} />
                 {m.role === "user" && m.task_id && (
                   <TaskView
+                    key={m.task_id}
                     taskId={m.task_id}
                     initialStatus={taskStatus(m.task_id)}
                     onFinished={() => {

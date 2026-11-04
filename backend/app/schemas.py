@@ -92,5 +92,9 @@ class TaskInputIn(BaseModel):
     secret: str | None = Field(default=None, max_length=64)
 
 
+class RetryIn(BaseModel):
+    mode: Literal["resume", "restart"]
+
+
 class Accepted(BaseModel):
     accepted: bool = True

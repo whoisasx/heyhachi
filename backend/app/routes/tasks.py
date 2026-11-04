@@ -8,15 +8,16 @@ from typing import Any
 
 from fastapi import APIRouter, Header, Request
 from fastapi.responses import StreamingResponse
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.auth import CurrentUser
 from app.crypto import Sealed
 from app.errors import APIError, not_found
-from app.models import TERMINAL_STATUSES, Task, TaskInput
+from app.events import LostOwnership
+from app.models import ACTIVE_STATUSES, TERMINAL_STATUSES, Task, TaskInput
 from app.relay import Event
 from app.runner import INPUT_KIND_FOR
-from app.schemas import Accepted, TaskInputIn, TaskOut
+from app.schemas import Accepted, RetryIn, TaskInputIn, TaskOut, TaskRef
 
 router = APIRouter(tags=["tasks"])
 
@@ -65,11 +66,13 @@ async def task_events(
         # Subscribe before reading history so nothing falls in between.
         with state.relay.subscribe(task_id) as queue:
             last = start
-            for event in await state.store.events_after(task_id, last):
+            history = await state.store.events_after(task_id, last)
+            for event in history:
                 yield _format(event)
                 last = event.seq
-                if _is_terminal(event):
-                    return
+            # A resumed task has a "failed" in its history, so only the latest event counts.
+            if history and _is_terminal(history[-1]):
+                return
             if task.status in TERMINAL_STATUSES and last >= task.last_event_seq:
                 return
             while True:
@@ -204,3 +207,47 @@ async def cancel_task(task_id: uuid.UUID, request: Request, user: CurrentUser) -
         raise APIError(409, "task_finished", "This task has already finished.")
     await request.app.state.runner.cancel(task_id)
     return Accepted()
+
+
+# ---- retry ---------------------------------------------------------------
+
+# Limits and repeated crashes: resuming would hit the same wall, so only restart.
+RESTART_ONLY = {"step_limit", "time_limit", "cost_limit", "too_many_attempts"}
+
+
+@router.post("/tasks/{task_id}/retry", response_model=TaskRef, status_code=202)
+async def retry_task(
+    task_id: uuid.UUID, body: RetryIn, request: Request, user: CurrentUser
+) -> TaskRef:
+    state = request.app.state
+    task = await _owned_task(request, task_id, user.id)
+    if task.status not in ("failed", "cancelled"):
+        raise APIError(409, "task_not_retryable", "Only a failed or cancelled task can be retried.")
+    error = task.error or {}
+    if not error.get("retryable", task.status == "cancelled"):
+        raise APIError(409, "task_not_retryable", "This task can't be retried.")
+    if body.mode == "resume" and (task.status != "failed" or error.get("code") in RESTART_ONLY):
+        raise APIError(409, "task_not_resumable", "This task can't be resumed; start it over.")
+
+    async with state.session_factory() as session:
+        if await session.scalar(
+            select(Task.id).where(
+                Task.conversation_id == task.conversation_id, Task.status.in_(ACTIVE_STATUSES)
+            )
+        ):
+            raise APIError(409, "task_in_progress", "Wait for the current task to finish.")
+        active = await session.scalar(
+            select(func.count()).where(Task.user_id == user.id, Task.status.in_(ACTIVE_STATUSES))
+        )
+    if active >= state.settings.max_active_tasks_per_user:
+        raise APIError(429, "too_many_active_tasks", "You already have tasks running.")
+
+    try:
+        if body.mode == "resume":
+            await state.runner.resume(task_id)
+            new_id = task_id
+        else:
+            new_id = await state.runner.restart(task_id)
+    except LostOwnership as exc:  # retried twice at once
+        raise APIError(409, "task_not_retryable", "This task was already retried.") from exc
+    return TaskRef(id=new_id, status="queued", events_url=f"/v1/tasks/{new_id}/events")

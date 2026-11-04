@@ -65,6 +65,8 @@ class Settings(BaseSettings):
     heartbeat_interval: float = 10.0
     waiting_timeout: float = 600.0
     max_attempts: int = 3
+    max_task_seconds: float = 600.0  # working time; waiting for the user isn't counted
+    watchdog_interval: float = 5.0
     max_active_tasks_per_user: int = 3
     messages_per_minute: int = 10
     sse_ping_interval: float = 15.0
