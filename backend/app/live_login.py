@@ -3,14 +3,15 @@
 The user opens a browser on a site, logs in themselves, then clicks Done: the
 cookies are encrypted and saved as the site's session. Their password never
 reaches us. Logins left open close after 10 minutes. In development the browser
-is a visible Chrome window on this machine (no live_view_url).
+is a visible Chrome window on this machine (no live_view_url); with Browser Use
+Cloud it's a cloud browser and the user logs in through its live view URL.
 """
 
 import asyncio
 import contextlib
 import logging
-import tempfile
 import uuid
+from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -41,7 +42,7 @@ class _Login:
     site: str
     expires_at: datetime
     browser: Any
-    profile_dir: tempfile.TemporaryDirectory
+    stack: AsyncExitStack  # closes the browser (and stops a cloud browser)
     timer: asyncio.Task | None = field(default=None, repr=False)
 
 
@@ -52,42 +53,43 @@ class LiveLoginManager:
         self._logins: dict[uuid.UUID, _Login] = {}
 
     async def start(self, user_id: uuid.UUID, site: str) -> dict[str, Any]:
-        if self.settings.browser_backend != "local":
+        from app.executors.browser import BrowserUnavailable, build_launcher
+
+        launcher = build_launcher(self.settings)
+        if launcher is None:
             raise LiveLoginError("browser_unavailable", "No browser is connected in this build.")
-        from browser_use import BrowserProfile, BrowserSession
 
         # One open login per user and site.
         for login in list(self._logins.values()):
             if login.user_id == user_id and login.site == site:
                 await self._close(login.id)
 
-        profile_dir = tempfile.TemporaryDirectory(prefix="ba-login-")
-        browser = BrowserSession(
-            browser_profile=BrowserProfile(
-                headless=False, user_data_dir=profile_dir.name, keep_alive=False
-            )
-        )
+        stack = AsyncExitStack()
         try:
-            await browser.start()
-            await browser.navigate_to(f"https://{site}")
+            handle = await stack.enter_async_context(launcher.open(None, visible=True))
+            await handle.session.navigate_to(f"https://{site}")
+        except BrowserUnavailable as exc:
+            await stack.aclose()
+            raise LiveLoginError(
+                "browser_unavailable", "The browser service is unavailable."
+            ) from exc
         except Exception:
-            await browser.kill()
-            profile_dir.cleanup()
+            await stack.aclose()
             raise
         login = _Login(
             id=uuid.uuid4(),
             user_id=user_id,
             site=site,
             expires_at=datetime.now(UTC) + LOGIN_TTL,
-            browser=browser,
-            profile_dir=profile_dir,
+            browser=handle.session,
+            stack=stack,
         )
         login.timer = asyncio.create_task(self._expire(login.id))
         self._logins[login.id] = login
         return {
             "id": login.id,
             "site": site,
-            "live_view_url": None,  # dev: the window on this machine is the live view
+            "live_view_url": handle.live_view_url,  # None locally: the window is the view
             "expires_at": login.expires_at,
         }
 
@@ -127,8 +129,7 @@ class LiveLoginManager:
         if login.timer and not from_timer:
             login.timer.cancel()
         with contextlib.suppress(Exception):
-            await login.browser.kill()
-        login.profile_dir.cleanup()
+            await login.stack.aclose()
 
     async def shutdown(self) -> None:
         for login_id in list(self._logins):

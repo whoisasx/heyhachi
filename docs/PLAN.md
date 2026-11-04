@@ -20,7 +20,7 @@ Each scenario shows something the assignment grades (UX, credentials, reliabilit
 
 ### Open questions
 
-- [ ] Swiggy needs an Indian IP. Check Browser Use Cloud's proxy country setting.
+- [x] Swiggy needs an Indian IP: Browser Use Cloud supports proxy country `in` (`BROWSER_PROXY_COUNTRY=in`).
 - [ ] Check what OpenRouter actually supports for video generation. Fall back to image generation or another API-key task if needed.
 - [ ] Test accounts ready: GitHub (with 2FA on), Gmail, Vercel, OpenRouter, Swiggy.
 
@@ -108,6 +108,9 @@ Left: an embedded live view needs Browser Use Cloud (production).
 Checked by 10 new tests (78 in total), including "crash mid-order, resume: the order is checked, never placed twice", and in the browser with the fake executor: confirm card timed out → Resume → fresh card → done; a failing task → Start over → a new task.
 Note: a normal (not irreversible) step that was in progress during a crash can run again; that's fine.
 Already in place from earlier phases: crash recovery on startup (4.1), step and cost limits (4.2), confirmations (4.4), result checks by browser-use's judge (4.3).
+
+**4.7 (in progress).** Done so far: `BROWSER_BACKEND=cloud` runs tasks and "log in myself" on Browser Use Cloud (live view URL shown in the chat, optional proxy country; India is supported, which settles the Swiggy question); backend `Dockerfile` (migrates, then serves; no Chrome inside; one replica only) checked locally; production refuses to start without its keys; frontend production build passes; [RELIABILITY.md](RELIABILITY.md) test list and [ACCESS.md](ACCESS.md) note written.
+Left: Browser Use Cloud key, Neon database, backend host, Vercel deploy, add the production redirect URI to the Google client, run the test list, demo video.
 
 ### Testing approach
 

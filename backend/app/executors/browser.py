@@ -1,18 +1,22 @@
 """Browser agent used by the orchestrator's `run_browser_task` tool.
 
-- `LocalBrowserAgent`: browser-use driving Chrome on this machine (development).
-  Each run gets a fresh, throwaway Chrome profile; the user's saved login for the
-  site is decrypted and loaded into it, and refreshed cookies are saved back.
+- `BrowserUseAgent`: browser-use driving a fresh browser per run. The user's saved
+  login for the site is decrypted and loaded into it, and refreshed cookies are
+  saved back. Where the browser runs is up to the launcher:
+  - `LocalLauncher`: Chrome on this machine with a throwaway profile (development;
+    the visible window doubles as the live view).
+  - `CloudLauncher`: a Browser Use Cloud browser (production), with a live view URL
+    the chat embeds, and an optional proxy country (e.g. "in" for Indian sites).
 - `UnavailableBrowser`: honestly reports that no browser is connected.
-
-Browser Use Cloud (production) plugs in behind the same interface later.
 """
 
+import contextlib
 import logging
 import os
 import tempfile
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from typing import Any, Protocol
 
 import certifi
@@ -21,7 +25,7 @@ from app.browser_sessions import SessionStore
 from app.config import Settings
 from app.crypto import Vault, load_master_key
 from app.llm import Usage
-from app.runner import TaskContext
+from app.runner import TaskContext, TaskFailed
 from app.vault import CredentialStore
 
 # browser-use sends anonymous telemetry by default; keep task data on our side.
@@ -121,26 +125,106 @@ def browser_cost_usd(usage: Any, model: str) -> float:
     ).cost_usd(model)
 
 
-class LocalBrowserAgent:
+# ---- where the browser runs ---------------------------------------------------
+
+
+@dataclass
+class OpenBrowser:
+    session: Any  # browser_use.BrowserSession, started
+    live_view_url: str | None
+    work_dir: str  # scratch space for browser-use's file system
+
+
+class LocalLauncher:
+    """Chrome on this machine, fresh throwaway profile each time."""
+
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
+
+    @asynccontextmanager
+    async def open(
+        self, storage_state: dict[str, Any] | None, *, visible: bool = False
+    ) -> AsyncIterator[OpenBrowser]:
+        from browser_use import BrowserProfile, BrowserSession
+
+        with tempfile.TemporaryDirectory(prefix="ba-profile-") as profile_dir:
+            session = BrowserSession(
+                browser_profile=BrowserProfile(
+                    headless=self.settings.browser_headless and not visible,
+                    user_data_dir=profile_dir,
+                    storage_state=storage_state,
+                    keep_alive=False,
+                )
+            )
+            try:
+                await session.start()
+                yield OpenBrowser(session, None, profile_dir)
+            finally:
+                await session.kill()
+
+
+class CloudLauncher:
+    """A Browser Use Cloud browser. Stopped (and billed no further) when closed."""
+
+    def __init__(self, settings: Settings) -> None:
+        self.settings = settings
+        if settings.browser_use_api_key:
+            os.environ.setdefault("BROWSER_USE_API_KEY", settings.browser_use_api_key)
+
+    @asynccontextmanager
+    async def open(
+        self, storage_state: dict[str, Any] | None, *, visible: bool = False
+    ) -> AsyncIterator[OpenBrowser]:
+        from browser_use import BrowserProfile, BrowserSession
+        from browser_use.browser.cloud.cloud import CloudBrowserClient
+        from browser_use.browser.cloud.views import CloudBrowserError, CreateBrowserRequest
+
+        client = CloudBrowserClient()
+        request = CreateBrowserRequest(
+            proxy_country_code=self.settings.browser_proxy_country or None,
+            timeout=self.settings.browser_cloud_timeout_minutes,
+        )
+        try:
+            cloud = await client.create_browser(request)
+        except CloudBrowserError as exc:
+            await client.close()
+            log.warning("cloud browser unavailable: %s", exc)
+            raise BrowserUnavailable(str(exc)) from exc
+        with tempfile.TemporaryDirectory(prefix="ba-work-") as work_dir:
+            session = BrowserSession(
+                browser_profile=BrowserProfile(
+                    cdp_url=cloud.cdpUrl, storage_state=storage_state, keep_alive=False
+                )
+            )
+            try:
+                await session.start()
+                yield OpenBrowser(session, cloud.liveUrl, work_dir)
+            finally:
+                with contextlib.suppress(Exception):
+                    await session.kill()
+                with contextlib.suppress(Exception):
+                    await client.stop_browser(cloud.id)
+                await client.close()
+
+
+class BrowserUnavailable(Exception):
+    """The browser service couldn't start a browser (bad key, quota, outage)."""
+
+
+# ---- the agent ----------------------------------------------------------------
+
+
+class BrowserUseAgent:
+    def __init__(self, settings: Settings, launcher: Any) -> None:
+        self.settings = settings
+        self.launcher = launcher
         self.vault = Vault(load_master_key(settings.vault_master_key))
 
     def _store(self, ctx: TaskContext) -> SessionStore:
         return SessionStore(ctx.session_factory, self.vault)
 
-    def _profile(self, user_data_dir: str, storage_state: dict[str, Any] | None):
-        from browser_use import BrowserProfile
-
-        return BrowserProfile(
-            headless=self.settings.browser_headless,
-            user_data_dir=user_data_dir,
-            storage_state=storage_state,
-            keep_alive=False,
-        )
-
     async def run(self, ctx: TaskContext, *, site: str, instruction: str) -> dict[str, Any]:
-        from browser_use import Agent, BrowserSession, ChatAnthropic, Tools
+        from browser_use import Agent, ChatAnthropic, Tools
         from browser_use.agent.views import ActionResult
 
         ctx.use_site(site)  # revoking this site now stops the task
@@ -184,8 +268,17 @@ class LocalBrowserAgent:
             if goal:
                 await ctx.progress(f"{site} · step {step}: {goal[:200]}")
 
-        with tempfile.TemporaryDirectory(prefix="ba-profile-") as profile_dir:
-            browser = BrowserSession(browser_profile=self._profile(profile_dir, saved))
+        try:
+            opened = self.launcher.open(saved)
+            handle = await opened.__aenter__()
+        except BrowserUnavailable:
+            raise TaskFailed(
+                "upstream_unavailable", "The browser service is unavailable, try again.", True
+            ) from None
+        try:
+            browser = handle.session
+            if handle.live_view_url:
+                await ctx.emit("live_view", {"url": handle.live_view_url, "site": site})
             agent = Agent(
                 task=f"Website: https://{site}\n\nTask: {instruction}\n"
                 + browser_rules(sorted(secrets)),
@@ -194,7 +287,7 @@ class LocalBrowserAgent:
                 tools=tools,
                 sensitive_data=scoped,
                 register_new_step_callback=on_step,
-                file_system_path=os.path.join(profile_dir, "fs"),
+                file_system_path=os.path.join(handle.work_dir, "fs"),
                 use_judge=True,  # independent check of the result (verification)
             )
             try:
@@ -208,10 +301,11 @@ class LocalBrowserAgent:
                         ctx.user_id, site, state, source="agent_login", task_id=ctx.task_id
                     )
             finally:
-                await browser.kill()
                 # Counted even if the run was cancelled or crashed part-way.
                 usage = await agent.token_cost_service.get_usage_summary()
                 await ctx.add_cost(browser_cost_usd(usage, model))
+        finally:
+            await opened.__aexit__(None, None, None)  # closes (and stops) the browser
 
         if logged_out:
             if saved is not None:
@@ -238,23 +332,25 @@ class LocalBrowserAgent:
 
     @asynccontextmanager
     async def live_login(self, ctx: TaskContext, site: str) -> AsyncIterator[LiveLogin]:
-        """Open a visible Chrome window on the site so the user logs in themselves.
+        """Open a browser on the site so the user logs in themselves.
 
-        In development the window on this machine is the live view. Credentials
-        typed there never reach us or the model; only the resulting cookies are saved.
+        Locally that's a visible Chrome window; in the cloud, a live view URL.
+        Credentials typed there never reach us or the model; only cookies are saved.
         """
-        from browser_use import BrowserSession
-
         store = self._store(ctx)
-        with tempfile.TemporaryDirectory(prefix="ba-login-") as profile_dir:
-            profile = self._profile(profile_dir, None)
-            profile.headless = False
-            browser = BrowserSession(browser_profile=profile)
-            await browser.start()
+        try:
+            opened = self.launcher.open(None, visible=True)
+            handle = await opened.__aenter__()
+        except BrowserUnavailable:
+            raise TaskFailed(
+                "upstream_unavailable", "The browser service is unavailable, try again.", True
+            ) from None
+        try:
+            browser = handle.session
             await browser.navigate_to(f"https://{site}")
 
             class _Login:
-                live_view_url = None
+                live_view_url = handle.live_view_url
 
                 async def save(self) -> bool:
                     state = await browser.export_storage_state()
@@ -265,15 +361,22 @@ class LocalBrowserAgent:
                     )
                     return True
 
-            try:
-                yield _Login()
-            finally:
-                await browser.kill()
+            yield _Login()
+        finally:
+            await opened.__aexit__(None, None, None)
+
+
+def build_launcher(settings: Settings) -> Any:
+    if settings.browser_backend == "local":
+        return LocalLauncher(settings)
+    if settings.browser_backend == "cloud":
+        return CloudLauncher(settings)
+    return None
 
 
 def build_browser(settings: Settings) -> BrowserAgent:
-    if settings.browser_backend == "local":
-        return LocalBrowserAgent(settings)
+    if settings.browser_backend in ("local", "cloud"):
+        return BrowserUseAgent(settings, build_launcher(settings))
     if settings.browser_backend == "unavailable":
         return UnavailableBrowser()
     raise ValueError(f"unknown browser backend: {settings.browser_backend}")

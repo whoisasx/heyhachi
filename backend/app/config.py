@@ -53,12 +53,17 @@ class Settings(BaseSettings):
     orchestrator_max_steps: int = 15
     max_cost_per_task_usd: float = 1.0
 
-    # Browser. "local": browser-use drives Chrome on this machine (dev).
+    # Browser. "local": browser-use drives Chrome on this machine (dev);
+    # "cloud": Browser Use Cloud (production, live view).
     # "unavailable": the browser tool reports it isn't connected (offline dev, tests).
     browser_backend: str = "local"
     browser_headless: bool = False  # dev: the visible window doubles as the live view
     browser_max_steps: int = 40
     browser_llm_model: str = "claude-sonnet-5"  # see executors/browser.py: forced tool choice
+    # "cloud": Browser Use Cloud (production). Needs BROWSER_USE_API_KEY.
+    browser_use_api_key: str | None = None
+    browser_proxy_country: str | None = None  # e.g. "in" for sites that need an Indian IP
+    browser_cloud_timeout_minutes: int = 15  # free plan maximum
 
     vault_master_key: str | None = None  # base64 of 32 random bytes
 
@@ -78,8 +83,24 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _no_dev_secret_in_production(self) -> "Settings":
-        if self.environment == "production" and self.backend_jwt_secret == DEV_JWT_SECRET:
+        if self.environment != "production":
+            return self
+        if self.backend_jwt_secret == DEV_JWT_SECRET:
             raise ValueError("BACKEND_JWT_SECRET must be set in production")
+        missing = [
+            name
+            for name, value in (
+                ("VAULT_MASTER_KEY", self.vault_master_key),
+                ("ANTHROPIC_API_KEY", self.anthropic_api_key),
+                (
+                    "BROWSER_USE_API_KEY",
+                    self.browser_backend != "cloud" or self.browser_use_api_key,
+                ),
+            )
+            if not value
+        ]
+        if missing:
+            raise ValueError(f"missing in production: {', '.join(missing)}")
         return self
 
 
