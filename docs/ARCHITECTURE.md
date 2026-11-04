@@ -7,7 +7,7 @@
 > - It **will change** as we build. When a decision changes, update this file in the same commit as the code, and add a line to the [Changelog](#14-changelog).
 > - Scope is the **assignment (v1)**. Anything under [Scaling path](#11-scaling-path-not-in-v1) is deliberately **not** built now.
 
-Related docs: [PLAN.md](PLAN.md) (requirements, demo scenarios, build phases). Coming next: `SCHEMA.md`, `API.md`.
+Related docs: [PLAN.md](PLAN.md) (requirements, demo scenarios, build phases), [SCHEMA.md](SCHEMA.md) (database). Coming next: `API.md`.
 
 ---
 
@@ -30,6 +30,7 @@ A chat assistant. The user asks in plain language ("repeat my last Swiggy order"
 | Backend runtime | **One FastAPI process, one asyncio event loop**; each task is an async task | Tasks mostly wait on I/O; same pattern as Skyvern. No workers/queue/Redis in v1 |
 | Live updates | **SSE** server → client; plain POSTs client → server | Simple, auto-reconnect with `Last-Event-ID` |
 | Durable state | **Postgres** for tasks, events, checkpoints, secrets | Survives refresh, crash, redeploy |
+| DB access | **SQLAlchemy 2.0 async + asyncpg**, migrations with **Alembic** | Async end to end; standard migrations |
 | Secret encryption | **Envelope encryption**, AES-256-GCM, master key in env var | Standard; KMS-ready later |
 | App login | **Google sign-in** (Auth.js), app only | Required by the assignment; never used to log into target sites |
 | LLM | **Claude** for both loops | Default model `claude-opus-5-5`; may drop to Sonnet/Haiku for cost on simple steps |
@@ -312,7 +313,7 @@ Before saying "done", the orchestrator checks the outcome on the site (draft exi
 
 ## 10. Data model (summary)
 
-Full columns, types and indexes go in `SCHEMA.md` (next step).
+Full columns, types, indexes, JSON shapes and event types are in [SCHEMA.md](SCHEMA.md).
 
 ```mermaid
 erDiagram
@@ -378,3 +379,4 @@ Workers are a **pool of long-running processes**, each running many tasks — no
 | Date | Change |
 |---|---|
 | 2026-11-04 | Initial architecture (single-process v1, own orchestrator, browser-use + Browser Use Cloud, envelope-encrypted vault, Postgres state) |
+| 2026-11-04 | Added SCHEMA.md; chose SQLAlchemy async + asyncpg + Alembic for DB access |
