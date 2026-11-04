@@ -383,3 +383,4 @@ Workers are a **pool of long-running processes**, each running many tasks — no
 | 2026-11-04 | Initial architecture (single-process v1, own orchestrator, browser-use + Browser Use Cloud, envelope-encrypted vault, Postgres state) |
 | 2026-11-04 | Added SCHEMA.md; chose SQLAlchemy async + asyncpg + Alembic for DB access |
 | 2026-11-04 | Added API.md; frontend → backend auth via 15-min JWT from Next.js; routes under `/v1` |
+| 2026-11-04 | Phase 4.1 built. Executors plug into the runner through `TaskContext` (fake executor until 4.2). Local dev and tests use Postgres in Docker (port 5433). |

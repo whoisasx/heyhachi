@@ -2,7 +2,7 @@
 
 A chat assistant that does tasks on real websites using a background cloud browser, and manages the user's access to those sites safely (passwords, 2FA, OTPs, API keys, saved sessions, revocation).
 
-Status: planning done, build not started.
+Status: phase 4.1 done (backend skeleton). Next: 4.2 orchestrator.
 
 ---
 
@@ -67,13 +67,23 @@ Tests are written alongside each phase, not at the end.
 
 | Phase | What | Done when |
 |---|---|---|
-| 4.1 | **Backend skeleton:** FastAPI, Postgres tables, task runner with states + events, SSE stream | A fake task moves through states and the events stream to a client; refresh replays missed events |
+| 4.1 ✅ | **Backend skeleton:** FastAPI, Postgres tables, task runner with states + events, SSE stream | A fake task moves through states and the events stream to a client; refresh replays missed events |
 | 4.2 | **Orchestrator:** Claude loop with tools (`run_browser_task`, `request_access`, `ask_user`, `list_connected_accounts`) | A message produces a plan and tool calls (browser tool stubbed) |
 | 4.3 | **Browser tool:** browser-use on Browser Use Cloud, saved sessions loaded and saved | A real task runs on a site and the session is reused in a fresh browser |
 | 4.4 | **Vault:** envelope encryption, secure input, TOTP, SMS OTP pause/resume, revoke, audit log | Secrets never appear in chat, logs, or model input; revoke removes everything |
 | 4.5 | **Frontend:** Google sign-in, chat, cards (connect, secure input, OTP, confirm, retry), live view, Connected accounts page | All demo flows usable in the browser |
 | 4.6 | **Reliability:** crash recovery, verification, confirmations, idempotency markers, step/time/cost limits | Killing the server mid-task recovers without losing the request or repeating an irreversible action |
 | 4.7 | **Ship:** deploy, reliability test list (10–15 tasks), access-management note, demo video | Deployed link works for a reviewer |
+
+### Phase notes
+
+**4.1 (done).** All tables migrated; conversations, messages, task status, SSE (with replay), input, and cancel routes; runner with checkpoints, cards, timeouts, cancel, heartbeat and startup recovery; secret detection in chat. Runs a fake executor. Checked by 37 tests plus a manual run against a real server (live SSE, and `kill -9` mid-task followed by a successful recovery).
+Not done yet, by design:
+- `POST /tasks/{id}/retry`: phase 4.6
+- OTP input (`kind: otp`) returns 422 until the vault encrypts it: phase 4.4
+- Vault routes: phase 4.4
+
+Note: a step that was in progress during a crash can run again (e.g. a progress line shows twice). That's fine for normal steps; irreversible steps get idempotency markers in 4.6.
 
 ### Testing approach
 
