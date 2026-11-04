@@ -7,7 +7,7 @@
 > - It **will change** as we build. When a decision changes, update this file in the same commit as the code, and add a line to the [Changelog](#14-changelog).
 > - Scope is the **assignment (v1)**. Anything under [Scaling path](#11-scaling-path-not-in-v1) is deliberately **not** built now.
 
-Related docs: [PLAN.md](PLAN.md) (requirements, demo scenarios, build phases), [SCHEMA.md](SCHEMA.md) (database). Coming next: `API.md`.
+Related docs: [PLAN.md](PLAN.md) (requirements, demo scenarios, build phases), [SCHEMA.md](SCHEMA.md) (database), [API.md](API.md) (HTTP API and SSE).
 
 ---
 
@@ -33,6 +33,7 @@ A chat assistant. The user asks in plain language ("repeat my last Swiggy order"
 | DB access | **SQLAlchemy 2.0 async + asyncpg**, migrations with **Alembic** | Async end to end; standard migrations |
 | Secret encryption | **Envelope encryption**, AES-256-GCM, master key in env var | Standard; KMS-ready later |
 | App login | **Google sign-in** (Auth.js), app only | Required by the assignment; never used to log into target sites |
+| Frontend → backend auth | Next.js server issues a **15-min JWT** (shared secret); browser calls the backend directly with it | Backend never talks to Google; SSE goes straight to the backend (no Vercel function timeouts) |
 | LLM | **Claude** for both loops | Default model `claude-opus-5-5`; may drop to Sonnet/Haiku for cost on simple steps |
 
 ---
@@ -87,19 +88,20 @@ flowchart TB
 - Holds **no secrets and no business logic**. Secure inputs post straight to the backend and are never added to chat history.
 
 ### 4.2 API routes (FastAPI)
-Quick handlers only; they never run a task themselves. Full spec will live in `API.md`.
+Quick handlers only; they never run a task themselves. Full contract in [API.md](API.md). The main ones:
 
 | Route | Does |
 |---|---|
-| `POST /messages` | Save message, create task (`queued`), start `run_task` in background, return `task_id` |
-| `GET /tasks/{id}/events` | SSE: replay events after `Last-Event-ID`, then stream live |
-| `POST /tasks/{id}/input` | OTP / confirmation / credential for a waiting task; wakes it |
-| `POST /tasks/{id}/cancel` | Cancel a task |
-| `POST /vault` | Store a credential (encrypted) |
-| `GET /vault` | List connected accounts (metadata only, never values) |
-| `DELETE /vault/{id}` | Revoke: delete credential + sessions, write audit log |
+| `POST /v1/conversations/{id}/messages` | Save message, create task (`queued`), start `run_task` in background, return task (202) |
+| `GET /v1/tasks/{id}/events` | SSE: replay events after `Last-Event-ID`, then stream live |
+| `POST /v1/tasks/{id}/input` | OTP / confirmation / answer / credential ready for a waiting task; wakes it |
+| `POST /v1/tasks/{id}/cancel`, `/retry` | Cancel; resume from checkpoint or restart |
+| `POST /v1/vault/credentials` | Store a credential (encrypted) |
+| `GET /v1/vault` | Connected accounts (metadata only, never values) |
+| `DELETE /v1/vault/sites/{site}` | Revoke: delete credentials + session, write audit log |
+| `POST /v1/vault/live-login` (+ `/complete`) | Log in yourself through a live view; save the session |
 
-Every route checks the signed-in user owns the task or credential.
+Every route checks the signed-in user owns the resource (404 otherwise).
 
 ### 4.3 Task runner
 - Started with `asyncio.create_task(run_task(task_id))`; kept in a registry (`task_id → asyncio.Task`) so it can be cancelled and isn't garbage-collected.
@@ -380,3 +382,4 @@ Workers are a **pool of long-running processes**, each running many tasks — no
 |---|---|
 | 2026-11-04 | Initial architecture (single-process v1, own orchestrator, browser-use + Browser Use Cloud, envelope-encrypted vault, Postgres state) |
 | 2026-11-04 | Added SCHEMA.md; chose SQLAlchemy async + asyncpg + Alembic for DB access |
+| 2026-11-04 | Added API.md; frontend → backend auth via 15-min JWT from Next.js; routes under `/v1` |

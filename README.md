@@ -6,6 +6,8 @@ Status: planning complete, build in progress.
 
 - [Plan](docs/PLAN.md): demo scenarios, keys, build phases
 - [Architecture](docs/ARCHITECTURE.md): components, task lifecycle, data model, crash recovery, secrets
+- [Schema](docs/SCHEMA.md): database tables, JSON shapes, event types
+- [API](docs/API.md): HTTP routes, SSE stream, auth, errors
 
 ## Stack
 

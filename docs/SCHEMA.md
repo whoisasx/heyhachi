@@ -147,9 +147,10 @@ What the user and assistant **said** in chat. Never contains secrets. Claude's i
 | `role` | text, CHECK in (`user`, `assistant`) | |
 | `content` | text, not null | |
 | `task_id` | uuid FK → tasks, set null | For a user message: the task it started. For an assistant message: the task it reports on. |
+| `client_message_id` | uuid | Sent by the frontend for user messages; makes re-sends safe (see API.md) |
 | `created_at` | timestamptz | |
 
-Index: `(conversation_id, created_at)`.
+Index: `(conversation_id, created_at)`. Constraint: `UNIQUE (conversation_id, client_message_id)`.
 
 ### 3.4 `tasks`
 **Current truth** for one user request. See ARCHITECTURE §7.
@@ -397,3 +398,4 @@ SELECT id FROM tasks
 | Date | Change |
 |---|---|
 | 2026-11-04 | Initial schema |
+| 2026-11-04 | Added `messages.client_message_id` for idempotent sends (API.md) |
