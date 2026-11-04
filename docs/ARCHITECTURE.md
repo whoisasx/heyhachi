@@ -34,7 +34,7 @@ A chat assistant. The user asks in plain language ("repeat my last Swiggy order"
 | Secret encryption | **Envelope encryption**, AES-256-GCM, master key in env var | Standard; KMS-ready later |
 | App login | **Google sign-in** (Auth.js), app only | Required by the assignment; never used to log into target sites |
 | Frontend → backend auth | Next.js server issues a **15-min JWT** (shared secret); browser calls the backend directly with it | Backend never talks to Google; SSE goes straight to the backend (no Vercel function timeouts) |
-| LLM | **Claude** for both loops | Default model `claude-opus-5-5`; may drop to Sonnet/Haiku for cost on simple steps |
+| LLM | **Claude Sonnet 5.5** (`claude-sonnet-5-5`, effort medium) | Cheapest model that handles this work well (Haiku is too weak for multi-step web tasks). Prompt caching on; server-side refusal fallback on; $1 cost cap per task |
 
 ---
 
@@ -372,7 +372,7 @@ Workers are a **pool of long-running processes**, each running many tasks — no
 - [ ] How the live view embeds (iframe URL, auth, expiry).
 - [ ] OpenRouter: what it supports for video generation; fallback task if not.
 - [ ] Waiting on the user: keep the coroutine alive with the browser open (current plan) vs. release and resume from checkpoint. Revisit after the spike.
-- [ ] Final model choice per loop (Opus vs Sonnet vs Haiku) after measuring cost.
+- [ ] Model for the browser loop (4.3): start on Sonnet, measure cost and success rate.
 
 ---
 
@@ -384,3 +384,4 @@ Workers are a **pool of long-running processes**, each running many tasks — no
 | 2026-11-04 | Added SCHEMA.md; chose SQLAlchemy async + asyncpg + Alembic for DB access |
 | 2026-11-04 | Added API.md; frontend → backend auth via 15-min JWT from Next.js; routes under `/v1` |
 | 2026-11-04 | Phase 4.1 built. Executors plug into the runner through `TaskContext` (fake executor until 4.2). Local dev and tests use Postgres in Docker (port 5433). |
+| 2026-11-04 | Phase 4.2 built. Orchestrator is a manual Claude tool loop with a checkpoint after every step; default model switched from Opus to Sonnet 5.5 to keep costs down. Browser tool is a stub until 4.3. |

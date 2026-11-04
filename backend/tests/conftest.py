@@ -42,6 +42,7 @@ def make_settings(**overrides: Any) -> Settings:
     values: dict[str, Any] = {
         "database_url": TEST_DB_URL,
         "backend_jwt_secret": JWT_SECRET,
+        "executor": "fake",
         "fake_step_delay": 0.0,
         "heartbeat_interval": 0.2,
         "waiting_timeout": 30.0,

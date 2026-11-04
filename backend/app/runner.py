@@ -24,7 +24,9 @@ from app.events import EventSpec, EventStore, LostOwnership
 from app.models import (
     ACTIVE_STATUSES,
     TERMINAL_STATUSES,
+    BrowserSession,
     Conversation,
+    Credential,
     Message,
     Task,
     TaskInput,
@@ -110,6 +112,63 @@ class TaskContext:
     async def save_checkpoint(self, checkpoint: dict[str, Any]) -> None:
         await self._apply([], changes={"checkpoint": checkpoint})
         self.checkpoint = dict(checkpoint)
+
+    async def add_cost(self, usd: float) -> float:
+        """Add spend to the task and enforce the per-task cost limit. Returns the new total."""
+        async with self._runner.session_factory() as session, session.begin():
+            total = await session.scalar(
+                update(Task)
+                .where(Task.id == self.task_id, Task.worker_id == self._runner.worker_id)
+                .values(cost_usd=Task.cost_usd + usd)
+                .returning(Task.cost_usd)
+            )
+        if total is None:
+            raise LostOwnership(str(self.task_id))
+        if float(total) > self._runner.settings.max_cost_per_task_usd:
+            raise TaskFailed("cost_limit", "This task hit its spending limit.", retryable=True)
+        return float(total)
+
+    async def history(self, limit: int = 20) -> list[dict[str, str]]:
+        """Earlier chat turns in this conversation (oldest first), excluding this task's."""
+        async with self._runner.session_factory() as session:
+            rows = (
+                await session.execute(
+                    select(Message.role, Message.content)
+                    .where(
+                        Message.conversation_id == self.conversation_id,
+                        (Message.task_id != self.task_id) | Message.task_id.is_(None),
+                    )
+                    .order_by(Message.created_at.desc())
+                    .limit(limit)
+                )
+            ).all()
+        return [{"role": r.role, "content": r.content} for r in reversed(rows)]
+
+    async def connected_accounts(self) -> list[dict[str, Any]]:
+        """Metadata of the user's stored access (never values)."""
+        async with self._runner.session_factory() as session:
+            creds = (
+                await session.execute(
+                    select(Credential.site, Credential.kind, Credential.label).where(
+                        Credential.user_id == self.user_id
+                    )
+                )
+            ).all()
+            sessions = (
+                await session.execute(
+                    select(BrowserSession.site, BrowserSession.status).where(
+                        BrowserSession.user_id == self.user_id
+                    )
+                )
+            ).all()
+        sites: dict[str, dict[str, Any]] = {}
+        for site, kind, label in creds:
+            sites.setdefault(site, {"site": site, "credentials": [], "session": None})
+            sites[site]["credentials"].append({"kind": kind, "label": label})
+        for site, status in sessions:
+            sites.setdefault(site, {"site": site, "credentials": [], "session": None})
+            sites[site]["session"] = status
+        return sorted(sites.values(), key=lambda s: s["site"])
 
     async def ask(
         self, kind: str, card: dict[str, Any], wait_seconds: float | None = None

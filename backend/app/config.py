@@ -40,9 +40,18 @@ class Settings(BaseSettings):
     jwt_audience: str = "browser-agent-api"
     frontend_url: str = "http://localhost:3000"
 
-    # Which task executor runs tasks. "fake" until the orchestrator lands (phase 4.2).
-    executor: str = "fake"
+    # Which task executor runs tasks: "orchestrator" (Claude) or "fake" (tests, offline dev).
+    executor: str = "orchestrator"
     fake_step_delay: float = 1.0
+
+    # LLM. Sonnet by default: the cheapest model that handles this work well.
+    anthropic_api_key: str | None = None
+    llm_model: str = "claude-sonnet-5-5"
+    llm_effort: str = "medium"
+    llm_max_tokens: int = 8000
+    llm_fallbacks: bool = True  # server-side refusal fallback (Claude API only)
+    orchestrator_max_steps: int = 15
+    max_cost_per_task_usd: float = 1.0
 
     heartbeat_interval: float = 10.0
     waiting_timeout: float = 600.0

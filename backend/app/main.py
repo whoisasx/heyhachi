@@ -19,6 +19,12 @@ from app.runner import Executor, TaskRunner
 def build_executor(settings: Settings) -> Executor:
     if settings.executor == "fake":
         return FakeExecutor(step_delay=settings.fake_step_delay)
+    if settings.executor == "orchestrator":
+        from app.executors.browser import UnavailableBrowser
+        from app.executors.orchestrator import Orchestrator
+        from app.llm import ClaudeLLM
+
+        return Orchestrator(ClaudeLLM(settings), UnavailableBrowser(), settings)
     raise ValueError(f"unknown executor: {settings.executor}")
 
 
