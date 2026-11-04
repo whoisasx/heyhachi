@@ -25,7 +25,8 @@ A chat assistant. The user asks in plain language ("repeat my last Swiggy order"
 |---|---|---|
 | Orchestrator | **Our own loop** on the Anthropic SDK (no LangGraph) | Full understanding and control; designed graph-like so LangGraph is easy later |
 | Browser agent | **browser-use** (library) | Ready-made perception/action loop; `sensitive_data` placeholders keep secrets from the LLM |
-| Browsers | **Browser Use Cloud** | Chrome runs elsewhere (heavy part outsourced), gives live view and proxies |
+| Browsers | **Local Chrome** in dev, **Browser Use Cloud** in production | Same interface (`BrowserAgent`). Cloud: Chrome runs elsewhere, gives live view and proxies |
+| Browser LLM | **`claude-sonnet-5`** | browser-use forces its output tool; Sonnet 5.5 rejects forced tool choice. Same price as 5.5 |
 | Sessions | **Saved by us** (encrypted cookies + localStorage in our DB) | Provider can be swapped; we control revocation |
 | Backend runtime | **One FastAPI process, one asyncio event loop**; each task is an async task | Tasks mostly wait on I/O; same pattern as Skyvern. No workers/queue/Redis in v1 |
 | Live updates | **SSE** server → client; plain POSTs client → server | Simple, auto-reconnect with `Last-Event-ID` |
@@ -385,3 +386,4 @@ Workers are a **pool of long-running processes**, each running many tasks — no
 | 2026-11-04 | Added API.md; frontend → backend auth via 15-min JWT from Next.js; routes under `/v1` |
 | 2026-11-04 | Phase 4.1 built. Executors plug into the runner through `TaskContext` (fake executor until 4.2). Local dev and tests use Postgres in Docker (port 5433). |
 | 2026-11-04 | Phase 4.2 built. Orchestrator is a manual Claude tool loop with a checkpoint after every step; default model switched from Opus to Sonnet 5.5 to keep costs down. Browser tool is a stub until 4.3. |
+| 2026-11-04 | Phase 4.3 built with local Chrome. Browser loop on `claude-sonnet-5` (forced tool choice); fresh profile per run; sessions encrypted (crypto pulled forward from 4.4); live login = visible local Chrome window in dev. |

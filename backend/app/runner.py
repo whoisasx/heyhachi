@@ -87,6 +87,10 @@ class TaskContext:
         self.finished = False
 
     @property
+    def session_factory(self):
+        return self._runner.session_factory
+
+    @property
     def _store(self) -> EventStore:
         return self._runner.store
 

@@ -53,6 +53,15 @@ class Settings(BaseSettings):
     orchestrator_max_steps: int = 15
     max_cost_per_task_usd: float = 1.0
 
+    # Browser. "local": browser-use drives Chrome on this machine (dev).
+    # "unavailable": the browser tool reports it isn't connected (offline dev, tests).
+    browser_backend: str = "local"
+    browser_headless: bool = False  # dev: the visible window doubles as the live view
+    browser_max_steps: int = 40
+    browser_llm_model: str = "claude-sonnet-5"  # see executors/browser.py: forced tool choice
+
+    vault_master_key: str | None = None  # base64 of 32 random bytes
+
     heartbeat_interval: float = 10.0
     waiting_timeout: float = 600.0
     max_attempts: int = 3

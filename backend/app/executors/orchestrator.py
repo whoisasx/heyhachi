@@ -14,6 +14,7 @@ from typing import Any
 
 import anthropic
 
+from app.browser_sessions import normalize_site
 from app.config import Settings
 from app.executors.browser import BrowserAgent
 from app.llm import LLM
@@ -264,7 +265,7 @@ class Orchestrator:
             return json.dumps({"answer": answer.get("text", "")})
 
         if name == "request_access":
-            site, kind = str(args.get("site", "")).strip().lower(), args.get("kind")
+            site, kind = normalize_site(str(args.get("site", ""))), args.get("kind")
             if not site or kind not in ACCESS_KINDS:
                 raise ToolError(f"site and kind (one of {ACCESS_KINDS}) are required")
             card: dict[str, Any] = {
@@ -279,12 +280,19 @@ class Orchestrator:
                 card["kind"] = "secure_input"
                 card["fields"] = SECURE_FIELDS[kind]
             await ctx.progress(f"Waiting for you to connect {site}")
-            await ctx.ask("credential", card)
+            if kind == "browser_login":
+                # A browser the user logs in to; its cookies are saved when they're done.
+                async with self.browser.live_login(ctx, site) as login:
+                    card["live_view_url"] = login.live_view_url
+                    await ctx.ask("credential", card)
+                    await login.save()
+            else:
+                await ctx.ask("credential", card)  # secure form: vault routes (phase 4.4)
             connected = [s for s in await ctx.connected_accounts() if s["site"] == site]
             return json.dumps({"site": site, "connected": bool(connected), "access": connected[:1]})
 
         if name == "run_browser_task":
-            site = str(args.get("site", "")).strip().lower()
+            site = normalize_site(str(args.get("site", "")))
             instruction = str(args.get("instruction", "")).strip()
             if not site or not instruction:
                 raise ToolError("site and instruction are required")

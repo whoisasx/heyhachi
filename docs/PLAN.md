@@ -2,7 +2,7 @@
 
 A chat assistant that does tasks on real websites using a background cloud browser, and manages the user's access to those sites safely (passwords, 2FA, OTPs, API keys, saved sessions, revocation).
 
-Status: phases 4.1 (backend skeleton) and 4.2 (orchestrator) done. Next: 4.3 browser tool.
+Status: phases 4.1 (backend skeleton), 4.2 (orchestrator) and 4.3 (browser tool, local Chrome) done. Next: 4.4 vault.
 
 ---
 
@@ -69,7 +69,7 @@ Tests are written alongside each phase, not at the end.
 |---|---|---|
 | 4.1 ✅ | **Backend skeleton:** FastAPI, Postgres tables, task runner with states + events, SSE stream | A fake task moves through states and the events stream to a client; refresh replays missed events |
 | 4.2 ✅ | **Orchestrator:** Claude loop with tools (`run_browser_task`, `request_access`, `ask_user`, `list_connected_accounts`) | A message produces a plan and tool calls (browser tool stubbed) |
-| 4.3 | **Browser tool:** browser-use on Browser Use Cloud, saved sessions loaded and saved | A real task runs on a site and the session is reused in a fresh browser |
+| 4.3 ✅ | **Browser tool:** browser-use (local Chrome in dev; Browser Use Cloud in production), saved sessions loaded and saved | A real task runs on a site and the session is reused in a fresh browser |
 | 4.4 | **Vault:** envelope encryption, secure input, TOTP, SMS OTP pause/resume, revoke, audit log | Secrets never appear in chat, logs, or model input; revoke removes everything |
 | 4.5 | **Frontend:** Google sign-in, chat, cards (connect, secure input, OTP, confirm, retry), live view, Connected accounts page | All demo flows usable in the browser |
 | 4.6 | **Reliability:** crash recovery, verification, confirmations, idempotency markers, step/time/cost limits | Killing the server mid-task recovers without losing the request or repeating an irreversible action |
@@ -84,6 +84,14 @@ Not done yet, by design:
 - Vault routes: phase 4.4
 
 **4.2 (done).** Claude (`claude-sonnet-5-5`, effort medium) runs a manual tool loop in `app/executors/orchestrator.py`, saving a checkpoint after every step. On resume it re-runs any tool calls that have no results yet. Tools: `ask_user` (question card), `request_access` (connect or secure-input card; the form itself arrives in 4.4/4.5), `list_connected_accounts` (metadata only), and `run_browser_task` (an honest stub that says no browser is connected yet; 4.3 replaces it). Limits: 15 steps, $1 per task; refusals fail without retry. Prompt caching and server-side refusal fallback are on. Checked by 9 new tests with a scripted fake LLM (46 in total) and one live Sonnet run: "star a GitHub repo" produced a GitHub connect card for $0.0056.
+
+**4.3 (done, local Chrome).** `run_browser_task` runs browser-use on Chrome on this machine (`app/executors/browser.py`). Each run gets a fresh, throwaway Chrome profile (deleted afterwards). The user's saved login for the site is decrypted and loaded, and refreshed cookies are saved back. If the agent finds it is logged out, it stops with `login_required` and the session is marked expired, so the orchestrator asks the user to connect. `request_access(browser_login)` opens a visible Chrome window where the user logs in themselves; when they confirm, the cookies are encrypted and saved (`source = live_login`). Step progress streams as progress events; browser-use's own judge checks the result; browser tokens count toward the task's $1 cap. Envelope encryption (`app/crypto.py`) and the session store were pulled forward from 4.4.
+Choices made while testing live:
+- The browser loop uses `claude-sonnet-5`, not 5.5. browser-use forces its output tool, and Sonnet 5.5 rejects forced tool choice. Workarounds (auto tool choice, then strict schemas) failed: malformed actions, then "grammar too large". Same price.
+- browser-use's arbitrary-JavaScript action is disabled; its telemetry is off.
+- anthropic SDK pinned to 1.x, because current browser-use requires `anthropic<2`.
+Checked by 7 new tests (53 in total) and a live run: "how many stars does browser-use/browser-use have?" gave the correct answer in 3 browser steps with no errors, for $0.11 in total (about $0.025 per browser step).
+Not verified live yet: the live-login window plus session reuse on a real account (needs the user to log in once).
 
 Note: a step that was in progress during a crash can run again (e.g. a progress line shows twice). That's fine for normal steps; irreversible steps get idempotency markers in 4.6.
 

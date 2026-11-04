@@ -11,7 +11,9 @@ dependencies = [
     "alembic>=1.14",
     "pydantic-settings>=2.6",
     "pyjwt>=2.10",
-    "anthropic>=1.0",
+    "anthropic>=1.0,<2",
+    "browser-use>=0.13",
+    "cryptography>=44",
 ]
 
 [dependency-groups]
