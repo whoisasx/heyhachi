@@ -32,3 +32,6 @@ traces/
 .DS_Store
 .idea/
 .vscode/
+
+# Private notes (OAuth client details etc.)
+informations.md
