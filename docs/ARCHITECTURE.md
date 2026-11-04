@@ -392,3 +392,4 @@ Workers are a **pool of long-running processes**, each running many tasks — no
 
 | 2026-11-05 | Phase 4.4 built: vault routes, encrypted OTP input (wiped after use), browser placeholders + TOTP via browser-use, revoke stops running tasks (`access_revoked`), orchestrator `confirm_action` tool. Standalone live-login routes moved to 4.5. |
 | 2026-11-05 | Phase 4.5 built: Next.js 16 frontend (chat, live task panel over SSE, cards, Connected accounts) and standalone live-login routes. Dev-only email sign-in until the Google OAuth client exists. |
+| 2026-11-05 | Google OAuth client created (testing mode, one test user); Google sign-in verified locally. Production redirect URI is added at deploy. |

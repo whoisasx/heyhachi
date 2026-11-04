@@ -2,7 +2,7 @@
 
 A chat assistant that does tasks on real websites using a background cloud browser, and manages the user's access to those sites safely (passwords, 2FA, OTPs, API keys, saved sessions, revocation).
 
-Status: phases 4.1–4.5 done (backend skeleton, orchestrator, browser tool on local Chrome, vault, frontend). Google OAuth client still to create. Next: 4.6 reliability.
+Status: phases 4.1–4.5 done (backend skeleton, orchestrator, browser tool on local Chrome, vault, frontend). Google sign-in works locally. Next: 4.6 reliability.
 
 ---
 
@@ -42,7 +42,7 @@ Keys go in `.env` (git-ignored). See `.env.example` for the full list. Never pas
 
 - [ ] Anthropic key
 - [ ] Browser Use Cloud key
-- [ ] Google OAuth client ID + secret
+- [x] Google OAuth client ID + secret (client `browser-agent-local`, testing mode)
 - [ ] Neon database URL
 - [ ] Railway project
 - [ ] Vercel project
@@ -98,7 +98,7 @@ Not verified live yet: a real login with a saved password + TOTP, and an SMS cod
 
 **4.5 (done, except the Google client).** Next.js 16 app in `frontend/`: Auth.js sign-in (Google, plus a dev-only email login that production builds never enable), `/api/backend-token` signs the 15-min backend JWT, chat with a sidebar of conversations, a live task panel (steps, status, cards) fed by SSE with resume from the last event, cards for question, confirm, OTP, connect and secure input (secure input posts straight to `/vault/credentials` with `for_task`), and a Connected accounts page (list, remove, revoke, add access, "log in myself", recent activity). Backend: standalone live-login routes (`app/live_login.py`; dev opens a visible Chrome window, closed after 10 minutes). Next 16 notes: Cache Components is on, so pages read the session inside `<Suspense>` after `await connection()`; Middleware is now Proxy (not used).
 Checked in the in-app browser against the real backend and Sonnet: dev sign-in → "save my OpenRouter key" → secure-input card → saved → task resumed and replied with only the masked label → key listed on Connected accounts with an audit entry; a key pasted into chat was blocked and not saved. Also fixed: duplicate steps from React's double-mount in dev (events are de-duplicated by seq).
-Left: create the Google OAuth client (needs the user's go-ahead and Google sign-in); a retry/resume card waits for the retry route (4.6); an embedded live view needs Browser Use Cloud (production).
+Left: a retry/resume card waits for the retry route (4.6); an embedded live view needs Browser Use Cloud (production).
 
 Note: a step that was in progress during a crash can run again (e.g. a progress line shows twice). That's fine for normal steps; irreversible steps get idempotency markers in 4.6.
 
