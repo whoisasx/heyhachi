@@ -113,7 +113,8 @@ Every route checks the signed-in user owns the resource (404 otherwise).
      - `request_access(site, kind)` — shows a Connect / Secure input card
      - `ask_user(question)` — asks a clarifying question
      - `list_connected_accounts()` — what access exists (metadata only)
-  2. **Browser agent loop** — browser-use on a Browser Use Cloud browser, with saved session loaded and secrets as `sensitive_data` placeholders. Custom tools: `fill_totp`, `ask_user_for_code`.
+     - `confirm_action(site, summary)` — Approve / Reject card before anything irreversible
+  2. **Browser agent loop** — browser-use on a Browser Use Cloud browser, with saved session loaded and secrets as `sensitive_data` placeholders. TOTP codes come from browser-use itself (placeholder `<site>_bu_2fa_code`); custom tool `ask_user_for_code` pauses for SMS/email codes. Secrets are scoped to `https://*.<site>`, so they're never typed on another domain.
   3. **Verify** the result really happened, save refreshed cookies, reply.
 - Limits per task: max browser steps, max wall time, max cost.
 
@@ -273,7 +274,7 @@ sequenceDiagram
     Note over LLM: Claude only ever sees "phone", never the number
 ```
 
-TOTP: the `fill_totp(element, site)` tool computes the code and types it; the LLM never sees the code.
+TOTP: the TOTP secret is stored under the placeholder `<site>_bu_2fa_code`; when the model types that placeholder, browser-use generates the current 6-digit code and types it. The LLM never sees the secret or the code. SMS/email codes: `ask_user_for_code` shows an OTP card; the code is encrypted at rest, decrypted only in the runner, typed via the `one_time_code` placeholder, and wiped once used.
 
 ### 8.3 Storage — envelope encryption
 - Each secret gets a fresh **data key** (AES-256-GCM). The data key is encrypted with the **master key** (`VAULT_MASTER_KEY` env var in v1; KMS later).
@@ -387,3 +388,5 @@ Workers are a **pool of long-running processes**, each running many tasks — no
 | 2026-11-04 | Phase 4.1 built. Executors plug into the runner through `TaskContext` (fake executor until 4.2). Local dev and tests use Postgres in Docker (port 5433). |
 | 2026-11-04 | Phase 4.2 built. Orchestrator is a manual Claude tool loop with a checkpoint after every step; default model switched from Opus to Sonnet 5.5 to keep costs down. Browser tool is a stub until 4.3. |
 | 2026-11-04 | Phase 4.3 built with local Chrome. Browser loop on `claude-sonnet-5` (forced tool choice); fresh profile per run; sessions encrypted (crypto pulled forward from 4.4); live login = visible local Chrome window in dev. |
+
+| 2026-11-05 | Phase 4.4 built: vault routes, encrypted OTP input (wiped after use), browser placeholders + TOTP via browser-use, revoke stops running tasks (`access_revoked`), orchestrator `confirm_action` tool. Standalone live-login routes moved to 4.5. |

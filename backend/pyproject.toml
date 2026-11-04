@@ -14,6 +14,7 @@ dependencies = [
     "anthropic>=1.0,<2",
     "browser-use>=0.13",
     "cryptography>=44",
+    "pyotp>=2.9",
 ]
 
 [dependency-groups]

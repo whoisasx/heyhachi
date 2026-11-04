@@ -14,7 +14,7 @@ import time
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,6 +31,9 @@ from app.models import (
     Task,
     TaskInput,
 )
+
+if TYPE_CHECKING:
+    from app.crypto import Vault
 
 log = logging.getLogger(__name__)
 
@@ -98,6 +101,11 @@ class TaskContext:
         return await self._store.apply(
             self.task_id, worker_id=self._runner.worker_id, events=events, **kwargs
         )
+
+    def use_site(self, site: str) -> None:
+        """Record that this task is using `site`, so revoking it stops the task."""
+        entry = self._runner._sites_in_use.setdefault(self.task_id, (self.user_id, set()))
+        entry[1].add(site)
 
     async def progress(self, text: str) -> None:
         await self._apply([("progress", {"text": text})])
@@ -212,15 +220,22 @@ class TaskContext:
             self.status = "waiting_user"
             self.waiting_for = {
                 "kind": kind,
+                "site": card.get("site"),
                 "card_seq": card_seq,
                 "expires_at": expires_at.isoformat(),
             }
 
+        site = (self.waiting_for or {}).get("site") or ""
         input_id, data = await self._runner._wait_for_input(self.task_id, card_seq, expires_at)
+        if kind == "otp":  # decrypted only here, in memory; the stored copy is wiped below
+            data = {"code": await self._runner.read_otp(input_id, self.user_id, site)}
 
         async def consume(session: AsyncSession) -> None:
+            values: dict[str, Any] = {"consumed_at": func.now()}
+            if kind == "otp":
+                values.update(ciphertext=None, nonce=None, encrypted_dek=None, dek_nonce=None)
             await session.execute(
-                update(TaskInput).where(TaskInput.id == input_id).values(consumed_at=func.now())
+                update(TaskInput).where(TaskInput.id == input_id).values(**values)
             )
 
         await self._apply(
@@ -274,8 +289,15 @@ class TaskContext:
 
 
 class TaskRunner:
-    def __init__(self, store: EventStore, executor: Executor, settings: Settings) -> None:
+    def __init__(
+        self,
+        store: EventStore,
+        executor: Executor,
+        settings: Settings,
+        vault: "Vault | None" = None,
+    ) -> None:
         self.store = store
+        self.vault = vault
         self.session_factory = store.session_factory
         self.executor = executor
         self.settings = settings
@@ -283,6 +305,8 @@ class TaskRunner:
         self._tasks: dict[uuid.UUID, asyncio.Task] = {}
         self._waiters: dict[uuid.UUID, _Waiter] = {}
         self._cancel_requested: set[uuid.UUID] = set()
+        self._cancel_errors: dict[uuid.UUID, dict[str, Any]] = {}  # cancel = fail with this
+        self._sites_in_use: dict[uuid.UUID, tuple[uuid.UUID, set[str]]] = {}
         self._heartbeat: asyncio.Task | None = None
 
     # ---- lifecycle -------------------------------------------------------
@@ -386,7 +410,11 @@ class TaskRunner:
             if not ctx.finished:
                 raise RuntimeError("executor returned without finishing the task")
         except asyncio.CancelledError:
-            if task_id in self._cancel_requested:
+            if task_id in self._cancel_errors:
+                await self._finalize_safely(
+                    task_id, status="failed", error=self._cancel_errors[task_id]
+                )
+            elif task_id in self._cancel_requested:
                 await self._finalize_safely(task_id, status="cancelled")
             else:
                 raise  # shutdown: leave state as is for recovery
@@ -424,6 +452,8 @@ class TaskRunner:
             self._tasks.pop(task_id, None)
             self._waiters.pop(task_id, None)
             self._cancel_requested.discard(task_id)
+            self._cancel_errors.pop(task_id, None)
+            self._sites_in_use.pop(task_id, None)
 
     async def _finalize_safely(self, task_id: uuid.UUID, **kwargs: Any) -> None:
         try:
@@ -510,6 +540,33 @@ class TaskRunner:
             return False
         waiter.future.set_result((input_id, data))
         return True
+
+    async def revoke_site(self, user_id: uuid.UUID, site: str) -> list[uuid.UUID]:
+        """Stop this user's running tasks that use `site`; they fail with access_revoked.
+
+        Cancelling closes their browser (the browser agent kills it on the way out).
+        """
+        stopped = []
+        for task_id, (owner, sites) in list(self._sites_in_use.items()):
+            task = self._tasks.get(task_id)
+            if owner == user_id and site in sites and task is not None:
+                self._cancel_errors[task_id] = {
+                    "code": "access_revoked",
+                    "message": f"You revoked access to {site}, so I stopped.",
+                    "retryable": False,
+                }
+                task.cancel()
+                stopped.append(task_id)
+        return stopped
+
+    async def read_otp(self, input_id: uuid.UUID, user_id: uuid.UUID, site: str) -> str:
+        if self.vault is None:
+            raise RuntimeError("vault not configured")
+        async with self.session_factory() as session:
+            row = await session.get(TaskInput, input_id)
+        if row is None or row.ciphertext is None:
+            raise TaskFailed("internal_error", "The code was not found.", retryable=True)
+        return self.vault.open(row, user_id=user_id, site=site, kind="otp")["code"]
 
     async def cancel(self, task_id: uuid.UUID) -> None:
         task = self._tasks.get(task_id)

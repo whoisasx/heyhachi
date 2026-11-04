@@ -2,7 +2,7 @@
 
 A chat assistant that does tasks on real websites using a background cloud browser, and manages the user's access to those sites safely (passwords, 2FA, OTPs, API keys, saved sessions, revocation).
 
-Status: phases 4.1 (backend skeleton), 4.2 (orchestrator) and 4.3 (browser tool, local Chrome) done. Next: 4.4 vault.
+Status: phases 4.1–4.4 done (backend skeleton, orchestrator, browser tool on local Chrome, vault). Next: 4.5 frontend.
 
 ---
 
@@ -70,8 +70,8 @@ Tests are written alongside each phase, not at the end.
 | 4.1 ✅ | **Backend skeleton:** FastAPI, Postgres tables, task runner with states + events, SSE stream | A fake task moves through states and the events stream to a client; refresh replays missed events |
 | 4.2 ✅ | **Orchestrator:** Claude loop with tools (`run_browser_task`, `request_access`, `ask_user`, `list_connected_accounts`) | A message produces a plan and tool calls (browser tool stubbed) |
 | 4.3 ✅ | **Browser tool:** browser-use (local Chrome in dev; Browser Use Cloud in production), saved sessions loaded and saved | A real task runs on a site and the session is reused in a fresh browser |
-| 4.4 | **Vault:** envelope encryption, secure input, TOTP, SMS OTP pause/resume, revoke, audit log | Secrets never appear in chat, logs, or model input; revoke removes everything |
-| 4.5 | **Frontend:** Google sign-in, chat, cards (connect, secure input, OTP, confirm, retry), live view, Connected accounts page | All demo flows usable in the browser |
+| 4.4 ✅ | **Vault:** envelope encryption, secure input, TOTP, SMS OTP pause/resume, revoke, audit log | Secrets never appear in chat, logs, or model input; revoke removes everything |
+| 4.5 | **Frontend** (+ standalone live-login routes): Google sign-in, chat, cards (connect, secure input, OTP, confirm, retry), live view, Connected accounts page | All demo flows usable in the browser |
 | 4.6 | **Reliability:** crash recovery, verification, confirmations, idempotency markers, step/time/cost limits | Killing the server mid-task recovers without losing the request or repeating an irreversible action |
 | 4.7 | **Ship:** deploy, reliability test list (10–15 tasks), access-management note, demo video | Deployed link works for a reviewer |
 
@@ -80,8 +80,7 @@ Tests are written alongside each phase, not at the end.
 **4.1 (done).** All tables migrated; conversations, messages, task status, SSE (with replay), input, and cancel routes; runner with checkpoints, cards, timeouts, cancel, heartbeat and startup recovery; secret detection in chat. Runs a fake executor. Checked by 37 tests plus a manual run against a real server (live SSE, and `kill -9` mid-task followed by a successful recovery).
 Not done yet, by design:
 - `POST /tasks/{id}/retry`: phase 4.6
-- OTP input (`kind: otp`) returns 422 until the vault encrypts it: phase 4.4
-- Vault routes: phase 4.4
+- OTP input and vault routes: done in 4.4
 
 **4.2 (done).** Claude (`claude-sonnet-5-5`, effort medium) runs a manual tool loop in `app/executors/orchestrator.py`, saving a checkpoint after every step. On resume it re-runs any tool calls that have no results yet. Tools: `ask_user` (question card), `request_access` (connect or secure-input card; the form itself arrives in 4.4/4.5), `list_connected_accounts` (metadata only), and `run_browser_task` (an honest stub that says no browser is connected yet; 4.3 replaces it). Limits: 15 steps, $1 per task; refusals fail without retry. Prompt caching and server-side refusal fallback are on. Checked by 9 new tests with a scripted fake LLM (46 in total) and one live Sonnet run: "star a GitHub repo" produced a GitHub connect card for $0.0056.
 
@@ -92,6 +91,10 @@ Choices made while testing live:
 - anthropic SDK pinned to 1.x, because current browser-use requires `anthropic<2`.
 Checked by 7 new tests (53 in total) and a live run: "how many stars does browser-use/browser-use have?" gave the correct answer in 3 browser steps with no errors, for $0.11 in total (about $0.025 per browser step).
 Not verified live yet: the live-login window plus session reuse on a real account (needs the user to log in once).
+
+**4.4 (done).** Vault routes (`GET /vault`, `POST /vault/credentials`, delete one, revoke a site, audit log) in `app/routes/vault.py`, logic in `app/vault.py`. Secrets are checked per kind (no CVV; TOTP keys must generate a code) and stored with envelope encryption; responses and errors only ever carry masked labels. Saving with `for_task` wakes the task waiting on that card. OTP input is encrypted with AAD `user|site|otp`, decrypted only inside the runner, and wiped once used. The browser gets secrets as `sensitive_data` placeholders scoped to `https://*.<site>`: the model sees names like `github.com_password`; browser-use types the real values and generates TOTP codes itself (`github.com_bu_2fa_code`). A browser action `ask_user_for_code` pauses for SMS/email codes. Revoking a site deletes its credentials and session and stops running tasks using it (`access_revoked`). New orchestrator tool `confirm_action` shows an Approve/Reject card before anything irreversible. Checked by 13 new tests (66 in total), including leak sweeps over every table, event, response, and the model's input.
+Moved to 4.5: the standalone live-login routes (`/vault/live-login…`), because they only make sense with the Connected accounts page. Logging in inside a task already works through the `connect` card.
+Not verified live yet: a real login with a saved password + TOTP, and an SMS code (needs the user's accounts).
 
 Note: a step that was in progress during a crash can run again (e.g. a progress line shows twice). That's fine for normal steps; irreversible steps get idempotency markers in 4.6.
 

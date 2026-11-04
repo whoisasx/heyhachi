@@ -1,14 +1,17 @@
 import asyncio
 import json
+import re
 import uuid
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import APIRouter, Header, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 
 from app.auth import CurrentUser
+from app.crypto import Sealed
 from app.errors import APIError, not_found
 from app.models import TERMINAL_STATUSES, Task, TaskInput
 from app.relay import Event
@@ -105,6 +108,62 @@ async def task_events(
 # ---- input and cancel ------------------------------------------------------
 
 
+OTP_RE = re.compile(r"\d{4,8}")
+
+
+def check_waiting(task: Task, card_seq: int, kind: str) -> dict:
+    """Raise unless `task` is waiting on card `card_seq` that expects input `kind`."""
+    if task.status != "waiting_user":
+        if task.error and task.error.get("code") == "waiting_timeout":
+            raise APIError(410, "input_expired", "The wait timed out. Resume the task instead.")
+        raise APIError(409, "task_not_waiting", "This task isn't waiting for input.")
+    waiting = task.waiting_for or {}
+    if waiting.get("card_seq") != card_seq:
+        raise APIError(409, "stale_card", "That card is no longer active.")
+    if datetime.fromisoformat(waiting["expires_at"]) <= datetime.now(UTC):
+        raise APIError(410, "input_expired", "The wait timed out. Resume the task instead.")
+    if INPUT_KIND_FOR[waiting["kind"]] != kind:
+        raise APIError(
+            422, "validation_error", f"This card expects `{INPUT_KIND_FOR[waiting['kind']]}`."
+        )
+    return waiting
+
+
+async def store_input(
+    state: Any,
+    task: Task,
+    user_id: uuid.UUID,
+    *,
+    kind: str,
+    card_seq: int,
+    data: dict | None,
+    sealed: Sealed | None = None,
+) -> None:
+    """Save the user's answer and wake the waiting task. Duplicate submits are ignored."""
+    async with state.session_factory() as session:
+        already = await session.scalar(
+            select(TaskInput.id).where(
+                TaskInput.task_id == task.id,
+                TaskInput.card_seq == card_seq,
+                TaskInput.consumed_at.is_(None),
+            )
+        )
+        if already is not None:
+            return  # the first one wins
+        row = TaskInput(
+            id=uuid.uuid4(),
+            task_id=task.id,
+            user_id=user_id,
+            kind=kind,
+            card_seq=card_seq,
+            data=data or {},
+            **(sealed.columns() if sealed else {}),
+        )
+        session.add(row)
+        await session.commit()
+    state.runner.deliver_input(task.id, card_seq, row.id, row.data)
+
+
 @router.post("/tasks/{task_id}/input", response_model=Accepted, status_code=202)
 async def task_input(
     task_id: uuid.UUID, body: TaskInputIn, request: Request, user: CurrentUser
@@ -112,53 +171,29 @@ async def task_input(
     state = request.app.state
     task = await _owned_task(request, task_id, user.id)
 
-    if body.kind == "otp":
-        # OTP codes must be encrypted at rest; that arrives with the vault (phase 4.4).
-        raise APIError(422, "validation_error", "OTP input is not available yet.")
-    if body.secret is not None:
+    if body.kind != "otp" and body.secret is not None:
         raise APIError(422, "validation_error", "`secret` is only accepted for OTP input.")
-
-    if task.status != "waiting_user":
-        if task.error and task.error.get("code") == "waiting_timeout":
-            raise APIError(410, "input_expired", "The wait timed out. Resume the task instead.")
-        raise APIError(409, "task_not_waiting", "This task isn't waiting for input.")
-
-    waiting = task.waiting_for or {}
-    if waiting.get("card_seq") != body.card_seq:
-        raise APIError(409, "stale_card", "That card is no longer active.")
-    if datetime.fromisoformat(waiting["expires_at"]) <= datetime.now(UTC):
-        raise APIError(410, "input_expired", "The wait timed out. Resume the task instead.")
-    if INPUT_KIND_FOR[waiting["kind"]] != body.kind:
-        raise APIError(
-            422, "validation_error", f"This card expects `{INPUT_KIND_FOR[waiting['kind']]}`."
-        )
+    waiting = check_waiting(task, body.card_seq, body.kind)
     if body.kind == "confirm" and (body.data or {}).get("decision") not in ("approve", "reject"):
         raise APIError(422, "validation_error", "decision must be 'approve' or 'reject'.")
     if body.kind == "answer" and not str((body.data or {}).get("text", "")).strip():
         raise APIError(422, "validation_error", "Answer text is required.")
 
-    async with state.session_factory() as session:
-        already = await session.scalar(
-            select(TaskInput.id).where(
-                TaskInput.task_id == task_id,
-                TaskInput.card_seq == body.card_seq,
-                TaskInput.consumed_at.is_(None),
-            )
+    sealed = None
+    data = body.data
+    if body.kind == "otp":
+        code = (body.secret or "").strip()
+        if not OTP_RE.fullmatch(code):
+            raise APIError(422, "validation_error", "The code should be 4-8 digits.")
+        # Encrypted at rest, bound to this user + the task's site; wiped once used.
+        sealed = state.vault.seal(
+            {"code": code}, user_id=user.id, site=waiting.get("site") or "", kind="otp"
         )
-        if already is not None:
-            return Accepted()  # duplicate submit; the first one wins
-        task_input_row = TaskInput(
-            id=uuid.uuid4(),
-            task_id=task_id,
-            user_id=user.id,
-            kind=body.kind,
-            card_seq=body.card_seq,
-            data=body.data or {},
-        )
-        session.add(task_input_row)
-        await session.commit()
+        data = {}
 
-    state.runner.deliver_input(task_id, body.card_seq, task_input_row.id, task_input_row.data)
+    await store_input(
+        state, task, user.id, kind=body.kind, card_seq=body.card_seq, data=data, sealed=sealed
+    )
     return Accepted()
 
 
