@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from app.auth import CurrentUser
 from app.browser_sessions import normalize_site
 from app.errors import APIError, not_found
+from app.live_login import LiveLoginError
 from app.models import Task
 from app.routes.tasks import check_waiting, store_input
 from app.vault import InvalidSecret
@@ -93,6 +94,43 @@ async def revoke_site(site: str, request: Request, user: CurrentUser) -> Respons
     site = normalize_site(site)
     await state.credentials.revoke_site(user.id, site)
     await state.runner.revoke_site(user.id, site)
+    return Response(status_code=204)
+
+
+class LiveLoginIn(BaseModel):
+    site: str = Field(min_length=1, max_length=253)
+
+
+def _live_error(exc: LiveLoginError) -> APIError:
+    status = {"not_found": 404, "not_logged_in": 409, "browser_unavailable": 503}[exc.code]
+    return APIError(status, exc.code, str(exc))
+
+
+@router.post("/vault/live-login", status_code=201)
+async def start_live_login(body: LiveLoginIn, request: Request, user: CurrentUser) -> dict:
+    site = normalize_site(body.site)
+    if not site or "." not in site:
+        raise APIError(422, "validation_error", "site must be a domain like github.com")
+    try:
+        return await request.app.state.live_logins.start(user.id, site)
+    except LiveLoginError as exc:
+        raise _live_error(exc) from None
+
+
+@router.post("/vault/live-login/{login_id}/complete", status_code=201)
+async def complete_live_login(login_id: uuid.UUID, request: Request, user: CurrentUser) -> dict:
+    try:
+        return await request.app.state.live_logins.complete(login_id, user.id)
+    except LiveLoginError as exc:
+        raise _live_error(exc) from None
+
+
+@router.post("/vault/live-login/{login_id}/cancel", status_code=204)
+async def cancel_live_login(login_id: uuid.UUID, request: Request, user: CurrentUser) -> Response:
+    try:
+        await request.app.state.live_logins.cancel(login_id, user.id)
+    except LiveLoginError as exc:
+        raise _live_error(exc) from None
     return Response(status_code=204)
 
 

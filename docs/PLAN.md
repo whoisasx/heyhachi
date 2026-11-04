@@ -2,7 +2,7 @@
 
 A chat assistant that does tasks on real websites using a background cloud browser, and manages the user's access to those sites safely (passwords, 2FA, OTPs, API keys, saved sessions, revocation).
 
-Status: phases 4.1–4.4 done (backend skeleton, orchestrator, browser tool on local Chrome, vault). Next: 4.5 frontend.
+Status: phases 4.1–4.5 done (backend skeleton, orchestrator, browser tool on local Chrome, vault, frontend). Google OAuth client still to create. Next: 4.6 reliability.
 
 ---
 
@@ -71,7 +71,7 @@ Tests are written alongside each phase, not at the end.
 | 4.2 ✅ | **Orchestrator:** Claude loop with tools (`run_browser_task`, `request_access`, `ask_user`, `list_connected_accounts`) | A message produces a plan and tool calls (browser tool stubbed) |
 | 4.3 ✅ | **Browser tool:** browser-use (local Chrome in dev; Browser Use Cloud in production), saved sessions loaded and saved | A real task runs on a site and the session is reused in a fresh browser |
 | 4.4 ✅ | **Vault:** envelope encryption, secure input, TOTP, SMS OTP pause/resume, revoke, audit log | Secrets never appear in chat, logs, or model input; revoke removes everything |
-| 4.5 | **Frontend** (+ standalone live-login routes): Google sign-in, chat, cards (connect, secure input, OTP, confirm, retry), live view, Connected accounts page | All demo flows usable in the browser |
+| 4.5 ✅ | **Frontend** (+ standalone live-login routes): Google sign-in, chat, cards (connect, secure input, OTP, confirm, retry), live view, Connected accounts page | All demo flows usable in the browser |
 | 4.6 | **Reliability:** crash recovery, verification, confirmations, idempotency markers, step/time/cost limits | Killing the server mid-task recovers without losing the request or repeating an irreversible action |
 | 4.7 | **Ship:** deploy, reliability test list (10–15 tasks), access-management note, demo video | Deployed link works for a reviewer |
 
@@ -95,6 +95,10 @@ Not verified live yet: the live-login window plus session reuse on a real accoun
 **4.4 (done).** Vault routes (`GET /vault`, `POST /vault/credentials`, delete one, revoke a site, audit log) in `app/routes/vault.py`, logic in `app/vault.py`. Secrets are checked per kind (no CVV; TOTP keys must generate a code) and stored with envelope encryption; responses and errors only ever carry masked labels. Saving with `for_task` wakes the task waiting on that card. OTP input is encrypted with AAD `user|site|otp`, decrypted only inside the runner, and wiped once used. The browser gets secrets as `sensitive_data` placeholders scoped to `https://*.<site>`: the model sees names like `github.com_password`; browser-use types the real values and generates TOTP codes itself (`github.com_bu_2fa_code`). A browser action `ask_user_for_code` pauses for SMS/email codes. Revoking a site deletes its credentials and session and stops running tasks using it (`access_revoked`). New orchestrator tool `confirm_action` shows an Approve/Reject card before anything irreversible. Checked by 13 new tests (66 in total), including leak sweeps over every table, event, response, and the model's input.
 Moved to 4.5: the standalone live-login routes (`/vault/live-login…`), because they only make sense with the Connected accounts page. Logging in inside a task already works through the `connect` card.
 Not verified live yet: a real login with a saved password + TOTP, and an SMS code (needs the user's accounts).
+
+**4.5 (done, except the Google client).** Next.js 16 app in `frontend/`: Auth.js sign-in (Google, plus a dev-only email login that production builds never enable), `/api/backend-token` signs the 15-min backend JWT, chat with a sidebar of conversations, a live task panel (steps, status, cards) fed by SSE with resume from the last event, cards for question, confirm, OTP, connect and secure input (secure input posts straight to `/vault/credentials` with `for_task`), and a Connected accounts page (list, remove, revoke, add access, "log in myself", recent activity). Backend: standalone live-login routes (`app/live_login.py`; dev opens a visible Chrome window, closed after 10 minutes). Next 16 notes: Cache Components is on, so pages read the session inside `<Suspense>` after `await connection()`; Middleware is now Proxy (not used).
+Checked in the in-app browser against the real backend and Sonnet: dev sign-in → "save my OpenRouter key" → secure-input card → saved → task resumed and replied with only the masked label → key listed on Connected accounts with an audit entry; a key pasted into chat was blocked and not saved. Also fixed: duplicate steps from React's double-mount in dev (events are de-duplicated by seq).
+Left: create the Google OAuth client (needs the user's go-ahead and Google sign-in); a retry/resume card waits for the retry route (4.6); an embedded live view needs Browser Use Cloud (production).
 
 Note: a step that was in progress during a crash can run again (e.g. a progress line shows twice). That's fine for normal steps; irreversible steps get idempotency markers in 4.6.
 

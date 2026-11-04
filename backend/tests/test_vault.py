@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import uuid
 
 import pyotp
 from sqlalchemy import text
@@ -308,3 +309,18 @@ async def test_confirm_action_tool(make_client):
     )
     await wait_for_status(client, task_id, "done")
     assert json.loads(last_tool_result(llm)["content"]) == {"decision": "reject"}
+
+
+async def test_live_login_needs_a_browser(client):
+    resp = await client.post("/vault/live-login", json={"site": "google.com"})
+    assert resp.status_code == 503 and resp.json()["error"]["code"] == "browser_unavailable"
+    missing = await client.post(f"/vault/live-login/{uuid.uuid4()}/complete")
+    assert missing.status_code == 404
+
+
+def test_cookie_site_match_rejects_lookalikes():
+    from app.live_login import _same_site
+
+    assert _same_site(".github.com", "github.com")
+    assert _same_site("api.github.com", "github.com")
+    assert not _same_site("evilgithub.com", "github.com")

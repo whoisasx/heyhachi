@@ -76,7 +76,7 @@ flowchart TB
 
 ## 4. Components
 
-### 4.1 Web app — Next.js + Auth.js + Tailwind (Vercel)
+### 4.1 Web app — Next.js 16 + Auth.js + Tailwind (Vercel)
 - Google sign-in for the app.
 - Chat screen that renders **task events** in order, including cards:
   - **Connect account** (log in via live view, or secure form)
@@ -87,6 +87,7 @@ flowchart TB
 - Embedded **live browser view** while a task runs.
 - **Connected accounts** page: list (metadata only) and revoke.
 - Holds **no secrets and no business logic**. Secure inputs post straight to the backend and are never added to chat history.
+- In local development a dev-only email sign-in is available (`AUTH_DEV_LOGIN=1`, never in production builds), and the "live view" is a visible Chrome window on the dev machine.
 
 ### 4.2 API routes (FastAPI)
 Quick handlers only; they never run a task themselves. Full contract in [API.md](API.md). The main ones:
@@ -390,3 +391,4 @@ Workers are a **pool of long-running processes**, each running many tasks — no
 | 2026-11-04 | Phase 4.3 built with local Chrome. Browser loop on `claude-sonnet-5` (forced tool choice); fresh profile per run; sessions encrypted (crypto pulled forward from 4.4); live login = visible local Chrome window in dev. |
 
 | 2026-11-05 | Phase 4.4 built: vault routes, encrypted OTP input (wiped after use), browser placeholders + TOTP via browser-use, revoke stops running tasks (`access_revoked`), orchestrator `confirm_action` tool. Standalone live-login routes moved to 4.5. |
+| 2026-11-05 | Phase 4.5 built: Next.js 16 frontend (chat, live task panel over SSE, cards, Connected accounts) and standalone live-login routes. Dev-only email sign-in until the Google OAuth client exists. |
