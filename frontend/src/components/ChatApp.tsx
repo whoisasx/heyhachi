@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -218,6 +219,27 @@ export function ChatApp() {
   const hint = useTypewriter(!draft && !busy);
 
   const title = detail?.title;
+  const topbarSlot = useSyncExternalStore(
+    noSubscribe,
+    () => document.getElementById("topbar-slot"),
+    () => null,
+  );
+  const chatHeading = (
+    <>
+      <h1 className="display min-w-0 truncate text-[1.05rem] leading-tight">{title ?? "New chat"}</h1>
+      <span role="status" className="contents">
+        {busy && (
+          <span
+            className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs ${
+              needsYou ? "bg-warn-soft text-warn" : "bg-accent-soft text-accent"
+            }`}
+          >
+            ● {needsYou ? "Needs you" : "Working"}
+          </span>
+        )}
+      </span>
+    </>
+  );
   // A brand-new chat: the input box sits in the middle of the page, like a home screen.
   // While the first message of a new chat is sending, stay on that screen.
   const firstSend = sending && !detail?.messages.length;
@@ -370,20 +392,18 @@ export function ChatApp() {
       <div className="flex min-h-0 flex-1">
         <main className="relative isolate flex min-w-0 flex-1 flex-col">
           {activeId && detail && (
-            <div className="flex items-center gap-3 border-b border-border px-6 py-3.5">
-              <h1 className="display truncate text-[1.1rem] leading-tight">{title ?? "New chat"}</h1>
-              <span role="status" className="contents">
-                {busy && (
-                  <span
-                    className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs ${
-                      needsYou ? "bg-warn-soft text-warn" : "bg-accent-soft text-accent"
-                    }`}
-                  >
-                    ● {needsYou ? "Needs you" : "Working"}
-                  </span>
+            <>
+              {/* wide screens: its own slim bar; phones and tablets: next to "Hachi" in the top bar */}
+              <div className="hidden items-center gap-3 border-b border-border px-6 py-2.5 lg:flex">{chatHeading}</div>
+              {topbarSlot &&
+                createPortal(
+                  <>
+                    <span className="mx-1 h-5 w-px shrink-0 bg-border" aria-hidden />
+                    {chatHeading}
+                  </>,
+                  topbarSlot,
                 )}
-              </span>
-            </div>
+            </>
           )}
 
           <div className="flex-1 overflow-y-auto">
@@ -511,6 +531,9 @@ function useTypewriter(on: boolean) {
   }, [on]);
   return text;
 }
+
+/** The top bar slot never changes once mounted, so there is nothing to subscribe to. */
+const noSubscribe = () => () => {};
 
 interface RunningTask {
   task_id: string;

@@ -157,9 +157,11 @@ export function Shell({ email, name, children }: { email: string; name: string |
             <button aria-label="Open menu" className="grid h-11 w-11 place-items-center rounded-md text-lg" onClick={() => setOpen(true)}>
               ☰
             </button>
-            <Link href="/chat" className="text-[1.1rem] leading-none">
+            <Link href="/chat" className="shrink-0 text-[1.1rem] leading-none">
               <Wordmark />
             </Link>
+            {/* the open chat puts its title here (ChatApp), after a thin divider */}
+            <div id="topbar-slot" className="flex min-w-0 flex-1 items-center gap-2 pr-3 empty:hidden" />
           </div>
           {children}
         </div>
