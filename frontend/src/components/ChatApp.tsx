@@ -1,20 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { ApiError, api, post, type ConversationDetail, type TaskStatus } from "@/lib/api";
-import { Shell } from "./Sidebar";
+import { refreshChats } from "./Sidebar";
 import { TaskView } from "./TaskView";
-
-interface Summary {
-  id: string;
-  title: string | null;
-  updated_at: string;
-  active_task_id: string | null;
-}
 
 const EXAMPLES = [
   "How many stars does browser-use/browser-use have on GitHub?",
@@ -22,48 +16,31 @@ const EXAMPLES = [
   "Ask a free model on OpenRouter to write a haiku",
 ];
 
-export function ChatApp({ initialId, email }: { initialId: string | null; email: string }) {
-  const [conversations, setConversations] = useState<Summary[]>([]);
-  const [activeId, setActiveId] = useState<string | null>(initialId);
-  const [detail, setDetail] = useState<ConversationDetail | null>(null);
+export function ChatApp() {
+  // The open chat lives in the URL (?c=), so sidebar links and back/forward just work.
+  const activeId = useSearchParams().get("c");
+  const [loaded, setLoaded] = useState<ConversationDetail | null>(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [pending, setPending] = useState<string | null>(null); // shown right away while sending
   const [error, setError] = useState<{ text: string; secret?: boolean } | null>(null);
-  const [live, setLive] = useState<{ taskId: string; url: string } | null>(null);
+  const [liveView, setLiveView] = useState<{ taskId: string; url: string } | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
 
-  const loadList = useCallback(
-    () =>
-      api<{ items: Summary[] }>("/conversations?limit=50").then((list) =>
-        setConversations(list.items),
-      ),
-    [],
-  );
+  // Only show what belongs to the open chat (the previous one may still be in state).
+  const detail = loaded?.id === activeId ? loaded : null;
+  const live = liveView && detail?.tasks.some((t) => t.id === liveView.taskId) ? liveView : null;
 
   const loadDetail = useCallback(
-    (id: string) => api<ConversationDetail>(`/conversations/${id}`).then(setDetail),
+    (id: string) => api<ConversationDetail>(`/conversations/${id}`).then(setLoaded),
     [],
   );
 
   useEffect(() => {
-    loadList().catch(() => setError({ text: "Couldn't reach the server." }));
-  }, [loadList]);
-
-  useEffect(() => {
-    window.history.replaceState(null, "", activeId ? `/chat?c=${activeId}` : "/chat");
     if (activeId) {
       loadDetail(activeId).catch(() => setError({ text: "Couldn't load that conversation." }));
     }
   }, [activeId, loadDetail]);
-
-  function open(id: string | null) {
-    if (id !== activeId) {
-      setDetail(null);
-      setLive(null);
-    }
-    setActiveId(id);
-  }
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: "smooth" });
@@ -83,7 +60,7 @@ export function ChatApp({ initialId, email }: { initialId: string | null; email:
   }, [busy, activeId, loadDetail]);
 
   const onLiveView = useCallback((taskId: string, url: string | null) => {
-    setLive((cur) => (url ? { taskId, url } : cur?.taskId === taskId ? null : cur));
+    setLiveView((cur) => (url ? { taskId, url } : cur?.taskId === taskId ? null : cur));
   }, []);
 
   async function send(e: { preventDefault(): void }) {
@@ -98,13 +75,14 @@ export function ChatApp({ initialId, email }: { initialId: string | null; email:
       let id = activeId;
       if (!id) {
         id = (await post<{ id: string }>("/conversations", {})).id;
-        setActiveId(id);
+        window.history.pushState(null, "", `/chat?c=${id}`); // Next keeps useSearchParams in sync
       }
       await post(`/conversations/${id}/messages`, {
         content,
         client_message_id: crypto.randomUUID(),
       });
-      await Promise.all([loadDetail(id), loadList()]);
+      await loadDetail(id);
+      refreshChats();
     } catch (err) {
       setDraft(content); // give the text back so nothing is lost
       if (err instanceof ApiError && err.code === "secret_in_message") {
@@ -118,31 +96,12 @@ export function ChatApp({ initialId, email }: { initialId: string | null; email:
     }
   }
 
-  const title = conversations.find((c) => c.id === activeId)?.title;
-  const chatList = (
-    <ul className="flex flex-col gap-0.5">
-      {conversations.map((c) => (
-        <li key={c.id}>
-          <button
-            onClick={() => open(c.id)}
-            className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm ${
-              c.id === activeId ? "bg-sunk font-medium" : "text-foreground/80 hover:bg-sunk"
-            }`}
-          >
-            {c.active_task_id && <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent" />}
-            <span className="truncate">{c.title ?? "New chat"}</span>
-          </button>
-        </li>
-      ))}
-      {conversations.length === 0 && <li className="px-2.5 text-sm text-muted">No chats yet</li>}
-    </ul>
-  );
+  const title = detail?.title;
 
   return (
-    <Shell email={email} active="chat" slot={chatList} onNewChat={() => open(null)}>
       <div className="flex min-h-0 flex-1">
         <main className="flex min-w-0 flex-1 flex-col">
-          {activeId && (
+          {activeId && detail && (
             <div className="flex items-center gap-3 border-b border-border px-6 py-3.5">
               <h1 className="display truncate text-[1.1rem] leading-tight">{title ?? "New chat"}</h1>
               {busy && (
@@ -155,7 +114,14 @@ export function ChatApp({ initialId, email }: { initialId: string | null; email:
 
           <div className="flex-1 overflow-y-auto">
             <div className="mx-auto flex max-w-3xl flex-col gap-5 px-4 py-7 sm:px-6">
-              {!detail?.messages.length && !pending && (
+              {activeId && !detail && !pending && (
+                <div className="flex flex-col gap-4 pt-2">
+                  <span className="h-10 w-1/2 self-end animate-pulse rounded-2xl bg-sunk" />
+                  <span className="ml-10 h-12 animate-pulse rounded-2xl bg-sunk" />
+                  <span className="ml-10 h-4 w-2/3 animate-pulse rounded bg-sunk" />
+                </div>
+              )}
+              {(!activeId || (detail && !detail.messages.length)) && !pending && (
                 <div className="mt-[12vh] text-center">
                   <h1 className="display text-4xl">What should I do?</h1>
                   <p className="mt-3 text-sm text-muted">
@@ -185,7 +151,7 @@ export function ChatApp({ initialId, email }: { initialId: string | null; email:
                       onLiveView={onLiveView}
                       onFinished={() => {
                         if (activeId) void loadDetail(activeId);
-                        void loadList();
+                        refreshChats();
                       }}
                     />
                   )}
@@ -212,7 +178,7 @@ export function ChatApp({ initialId, email }: { initialId: string | null; email:
                       className="ml-2 underline"
                       onClick={() => {
                         setError(null);
-                        void loadList().catch(() => setError({ text: "Couldn't reach the server." }));
+                        refreshChats();
                         if (activeId) void loadDetail(activeId).catch(() => {});
                       }}
                     >
@@ -289,7 +255,6 @@ export function ChatApp({ initialId, email }: { initialId: string | null; email:
           </aside>
         )}
       </div>
-    </Shell>
   );
 }
 
