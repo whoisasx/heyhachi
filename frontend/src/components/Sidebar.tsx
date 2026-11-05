@@ -47,6 +47,12 @@ export function Shell({ email, name, children }: { email: string; name: string |
 
   return (
     <UserContext.Provider value={{ email, name }}>
+      <a
+        href="#content"
+        className="sr-only z-50 rounded-lg bg-foreground px-3 py-2 text-sm text-background focus:not-sr-only focus:fixed focus:left-3 focus:top-3"
+      >
+        Skip to main content
+      </a>
       <div className="flex min-h-0 flex-1">
         {open && (
           <button aria-label="Close menu" className="fixed inset-0 z-20 bg-black/30 md:hidden" onClick={() => setOpen(false)} />
@@ -109,7 +115,7 @@ export function Shell({ email, name, children }: { email: string; name: string |
           </div>
         </aside>
 
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div id="content" tabIndex={-1} className="flex min-w-0 flex-1 flex-col outline-none">
           <button aria-label="Open menu" className="m-2 mb-0 self-start rounded-md px-2 py-1 text-lg md:hidden" onClick={() => setOpen(true)}>
             ☰
           </button>
@@ -149,11 +155,13 @@ function ChatList({ onChat }: { onChat: boolean }) {
   }, [running, load]);
 
   if (chats === null) return <ListSkeleton />;
-  if (chats.length === 0) return <p className="px-2.5 text-sm text-muted">No chats yet</p>;
+  // A chat with no title never got a message: don't list it (unless it's the open one).
+  const shown = chats.filter((c) => c.title || (onChat && c.id === activeId));
+  if (shown.length === 0) return <p className="px-2.5 text-sm text-muted">No chats yet</p>;
   return (
     <>
       <ul className="flex flex-col gap-0.5">
-        {chats.map((c) => (
+        {shown.map((c) => (
           <ChatRow
             key={c.id}
             chat={c}
@@ -257,7 +265,9 @@ function ChatRow({
         }`}
       >
         {chat.active_task_id && <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent" />}
-        <span className="truncate">{chat.title ?? "New chat"}</span>
+        <span className="truncate" title={chat.title ?? undefined}>
+          {chat.title ?? "New chat"}
+        </span>
       </Link>
       <span className="absolute right-1 top-1/2 hidden -translate-y-1/2 items-center group-hover:flex group-focus-within:flex">
         <RowButton label="Rename" onClick={() => setEditing(true)} d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4" />

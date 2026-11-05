@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-import { ApiError, cachedChat, loadChat, post, type ConversationDetail, type TaskStatus } from "@/lib/api";
+import { ApiError, api, cachedChat, loadChat, post, type ConversationDetail, type TaskStatus } from "@/lib/api";
 import { CHAT_RENAMED, refreshChats, useUser } from "./Sidebar";
 import { BoxMeadow } from "./ChatScene";
 import { LivePanel } from "./LivePanel";
@@ -48,7 +48,8 @@ export function ChatApp() {
   const [loaded, setLoaded] = useState<ConversationDetail | null>(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
-  const [error, setError] = useState<{ text: string; secret?: boolean } | null>(null);
+  const [error, setError] = useState<ChatError | null>(null);
+  const [stopping, setStopping] = useState(false);
   const [liveView, setLiveView] = useState<{ taskId: string; url: string } | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
@@ -65,7 +66,7 @@ export function ChatApp() {
 
   useEffect(() => {
     if (activeId) {
-      loadDetail(activeId).catch(() => setError({ text: "Couldn't load that conversation." }));
+      loadDetail(activeId).catch(() => setError({ chat: activeId, text: "Couldn't load that conversation." }));
     }
   }, [activeId, loadDetail]);
 
@@ -84,7 +85,43 @@ export function ChatApp() {
 
   const taskStatus = (taskId: string): TaskStatus =>
     detail?.tasks.find((t) => t.id === taskId)?.status ?? "queued";
-  const busy = detail?.tasks.some((t) => !["done", "failed", "cancelled"].includes(t.status));
+  // Task views report status as it streams in, ahead of the chat's next refresh.
+  const [liveStatus, setLiveStatus] = useState<Record<string, TaskStatus>>({});
+  const onStatus = useCallback((taskId: string, status: TaskStatus) => {
+    setLiveStatus((cur) => (cur[taskId] === status ? cur : { ...cur, [taskId]: status }));
+  }, []);
+  const activeTask = detail?.tasks
+    .map((t) => ({ ...t, status: liveStatus[t.id] ?? t.status }))
+    .find((t) => !["done", "failed", "cancelled"].includes(t.status));
+  const busy = !!activeTask;
+  const needsYou = activeTask?.status === "waiting_user";
+
+  // The tab title says when Hachi is working or waiting on you, so you notice from another tab.
+  useEffect(() => {
+    const base = "Hachi · The loyal agent";
+    document.title = needsYou ? "(1) Needs you · Hachi" : busy ? "Working… · Hachi" : base;
+    return () => {
+      document.title = base;
+    };
+  }, [busy, needsYou]);
+
+  // Errors belong to the chat they happened in; switching chats hides them.
+  const shownError = error && error.chat === activeId ? error : null;
+
+  async function stop() {
+    if (!activeTask || stopping) return;
+    setStopping(true);
+    try {
+      await post(`/tasks/${activeTask.id}/cancel`, {});
+      if (activeId) await loadDetail(activeId);
+      refreshChats();
+    } catch (err) {
+      setError({ chat: activeId, text: err instanceof Error ? err.message : "Couldn't stop the task." });
+    } finally {
+      setStopping(false);
+      input.current?.focus();
+    }
+  }
 
   // Fallback for a dropped live stream: refresh while a task is running.
   useEffect(() => {
@@ -102,13 +139,14 @@ export function ChatApp() {
   async function send(e: { preventDefault(): void }) {
     e.preventDefault();
     const content = draft.trim();
-    if (!content || sending) return;
+    if (!content || sending || busy) return;
     setSending(true);
     setError(null);
+    let created: string | null = null;
     try {
       let id = activeId;
       if (!id) {
-        id = (await post<{ id: string }>("/conversations", {})).id;
+        id = created = (await post<{ id: string }>("/conversations", {})).id;
         window.history.pushState(null, "", `/chat?c=${id}`); // Next keeps useSearchParams in sync
       }
       await post(`/conversations/${id}/messages`, {
@@ -118,13 +156,24 @@ export function ChatApp() {
       await loadDetail(id);
       setDraft(""); // only now: the message shows in the chat and leaves the box
       refreshChats();
-    } catch (err) {      if (err instanceof ApiError && err.code === "secret_in_message") {
-        setError({ text: err.message, secret: true });
+    } catch (err) {
+      // A new chat whose first message was refused would sit empty in the sidebar: drop it.
+      if (created) {
+        void api(`/conversations/${created}`, { method: "DELETE" }).catch(() => {});
+        window.history.replaceState(null, "", "/chat");
+      }
+      const chat = created ? null : activeId;
+      if (err instanceof ApiError && err.code === "secret_in_message") {
+        setError({ chat, text: err.message, secret: true });
+      } else if (err instanceof ApiError && err.code === "too_many_active_tasks") {
+        const running = (err.details.running as RunningTask[] | undefined) ?? [];
+        setError({ chat, text: err.message, running: running.length ? running : undefined });
       } else {
-        setError({ text: err instanceof Error ? err.message : "Couldn't send." });
+        setError({ chat, text: err instanceof Error ? err.message : "Couldn't send.", retry: true });
       }
     } finally {
       setSending(false);
+      setTimeout(() => input.current?.focus(), 0); // after a new chat's box has moved to the bottom
     }
   }
 
@@ -134,7 +183,7 @@ export function ChatApp() {
   const firstSend = sending && !detail?.messages.length;
   const empty = firstSend || ((!activeId || (detail !== null && !detail.messages.length)) && !sending);
   // Show "Working…" under the chat while a task runs and isn't waiting on the user.
-  const working = busy && !detail?.tasks.some((t) => t.status === "waiting_user");
+  const working = busy && !needsYou;
 
   function editMessage(text: string) {
     setDraft(text);
@@ -148,24 +197,43 @@ export function ChatApp() {
 
   const composer = (
       <form onSubmit={send} className={empty ? "w-full" : "px-4 pb-5 pt-2 sm:px-6"}>
-        <div className={`mx-auto ${empty ? "max-w-2xl" : "max-w-3xl"}`}>
-          {error && (
-            <p className="mb-2 rounded-xl bg-red-50 px-3 py-2 text-sm text-danger dark:bg-red-950/50">
-              {error.text}
-              {!error.secret && (
-                <button
-                  type="button"
-                  className="ml-2 underline"
-                  onClick={() => {
-                    setError(null);
-                    refreshChats();
-                    if (activeId) void loadDetail(activeId).catch(() => {});
-                  }}
-                >
+        {/* Hachi sits on top of this: the box, and any warning above it */}
+        <div data-pet="composer" className={`mx-auto ${empty ? "max-w-2xl" : "max-w-3xl"}`}>
+          {shownError && (
+            <div role="alert" className="mb-2 rounded-xl border border-warn/30 bg-warn-soft px-3 py-2 text-sm text-foreground">
+              {shownError.running
+                ? `${shownError.running.length === 1 ? "A task is" : `${shownError.running.length} tasks are`} still running. Stop one, or wait for it to finish:`
+                : shownError.text}
+              {shownError.running?.map((r) => (
+                <span key={r.task_id} className="mt-1.5 flex items-center gap-2">
+                  <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent" />
+                  <span className="min-w-0 truncate font-medium">{r.title}</span>
+                  <Link href={`/chat?c=${r.conversation_id}`} className="ml-auto shrink-0 rounded-md px-2 py-0.5 text-xs underline underline-offset-2 hover:bg-sunk">
+                    Open
+                  </Link>
+                  <button
+                    type="button"
+                    className="shrink-0 rounded-md px-2 py-0.5 text-xs underline underline-offset-2 hover:bg-sunk"
+                    onClick={async () => {
+                      await post(`/tasks/${r.task_id}/cancel`, {}).catch(() => {});
+                      setError((cur) => {
+                        const left = cur?.running?.filter((x) => x.task_id !== r.task_id) ?? [];
+                        return left.length ? { ...cur!, running: left } : null;
+                      });
+                      refreshChats();
+                      input.current?.focus();
+                    }}
+                  >
+                    Stop it
+                  </button>
+                </span>
+              ))}
+              {shownError.retry && (
+                <button type="button" className="ml-2 underline underline-offset-2" onClick={send}>
                   Try again
                 </button>
               )}
-              {error.secret && (
+              {shownError.secret && (
                 <>
                   {" "}
                   It wasn&apos;t sent or saved. Add it in the{" "}
@@ -175,12 +243,14 @@ export function ChatApp() {
                   instead.
                 </>
               )}
-            </p>
+            </div>
           )}
-          <div data-pet="composer" className={`relative isolate overflow-hidden rounded-2xl border border-border p-3 bg-surface/85 backdrop-blur-md shadow-[0_6px_24px_rgba(0,0,0,0.05)] focus-within:border-foreground/40`}>
+          <div className={`relative isolate overflow-hidden rounded-2xl border border-border p-3 bg-surface/85 backdrop-blur-md shadow-[0_6px_24px_rgba(0,0,0,0.05)] focus-within:border-foreground/40`}>
             <BoxMeadow />
             <textarea
               ref={input}
+              id="composer"
+              aria-label="Message Hachi"
               className="block max-h-40 min-h-11 w-full resize-none bg-transparent text-sm outline-none placeholder:text-muted"
               rows={empty ? 3 : 2}
               value={draft}
@@ -191,13 +261,27 @@ export function ChatApp() {
                   send(e);
                 }
               }}
-              placeholder={busy ? "Wait for the current task to finish…" : "Describe what you want done on a website…"}
+              placeholder={
+                busy ? "Hachi is on it. You can write your next message…" : "Describe what you want done on a website…"
+              }
               readOnly={sending}
-              disabled={busy}
               maxLength={4000}
             />
             <div className="mt-1 flex items-center gap-2">
               <Guardrails />
+              {busy && !sending ? (
+                <button
+                  type="button"
+                  onClick={stop}
+                  disabled={stopping}
+                  aria-label="Stop the task"
+                  title="Stop the task. Nothing more is done on your accounts."
+                  className="ml-auto flex h-9 items-center gap-1.5 rounded-full border border-border bg-surface pl-3 pr-3.5 text-sm font-medium transition hover:border-danger hover:text-danger disabled:opacity-50"
+                >
+                  <span className="h-2.5 w-2.5 rounded-[3px] bg-current" aria-hidden />
+                  {stopping ? "Stopping…" : "Stop"}
+                </button>
+              ) : (
               <button
                 aria-label={sending ? "Sending" : "Send"}
                 className={`ml-auto grid h-9 w-9 place-items-center rounded-full bg-foreground text-background transition hover:opacity-85 ${
@@ -211,6 +295,7 @@ export function ChatApp() {
                   "↑"
                 )}
               </button>
+              )}
             </div>
           </div>
           <p className="mt-2 text-center text-xs text-muted">
@@ -226,16 +311,22 @@ export function ChatApp() {
           {activeId && detail && (
             <div className="flex items-center gap-3 border-b border-border px-6 py-3.5">
               <h1 className="display truncate text-[1.1rem] leading-tight">{title ?? "New chat"}</h1>
-              {busy && (
-                <span className="shrink-0 rounded-full bg-accent-soft px-2.5 py-0.5 text-xs text-accent">
-                  ● Working
-                </span>
-              )}
+              <span role="status" className="contents">
+                {busy && (
+                  <span
+                    className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs ${
+                      needsYou ? "bg-warn-soft text-warn" : "bg-accent-soft text-accent"
+                    }`}
+                  >
+                    ● {needsYou ? "Needs you" : "Working"}
+                  </span>
+                )}
+              </span>
             </div>
           )}
 
           <div className="flex-1 overflow-y-auto">
-            <div className="mx-auto flex max-w-3xl flex-col gap-5 px-4 py-7 sm:px-6">
+            <div role="log" aria-label="Conversation" className="mx-auto flex max-w-3xl flex-col gap-5 px-4 py-7 sm:px-6">
               {activeId && !detail && !sending && (
                 <div className="flex flex-col gap-4 pt-2">
                   <span className="h-10 w-1/2 self-end animate-pulse rounded-2xl bg-sunk" />
@@ -291,6 +382,7 @@ export function ChatApp() {
                       taskId={m.task_id}
                       initialStatus={taskStatus(m.task_id)}
                       onLiveView={onLiveView}
+                      onStatus={onStatus}
                       onFinished={() => {
                         if (activeId) void loadDetail(activeId);
                         refreshChats();
@@ -310,6 +402,19 @@ export function ChatApp() {
         {live && <LivePanel url={live.url} />}
       </div>
   );
+}
+
+interface RunningTask {
+  task_id: string;
+  conversation_id: string;
+  title: string;
+}
+interface ChatError {
+  chat: string | null; // the chat it happened in
+  text: string;
+  secret?: boolean; // a secret was pasted: point to the Vault
+  retry?: boolean; // a network-ish failure: "Try again" resends
+  running?: RunningTask[]; // too many tasks: name them, with Open / Stop
 }
 
 /** What the assistant may do on its own: shown next to the send button. */

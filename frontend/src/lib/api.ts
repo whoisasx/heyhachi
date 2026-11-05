@@ -33,6 +33,7 @@ export class ApiError extends Error {
     public status: number,
     public code: string,
     message: string,
+    public details: Record<string, unknown> = {},
   ) {
     super(message);
   }
@@ -55,7 +56,7 @@ export async function api<T = unknown>(path: string, init: RequestInit = {}): Pr
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
     const err = body?.error ?? {};
-    throw new ApiError(res.status, err.code ?? "error", err.message ?? "Something went wrong.");
+    throw new ApiError(res.status, err.code ?? "error", err.message ?? "Something went wrong.", err.details ?? {});
   }
   return body as T;
 }
@@ -139,6 +140,7 @@ export interface Card {
   site?: string;
   title?: string;
   body?: string;
+  amount?: string;
   choices?: string[];
   fields?: Field[];
   access?: string;

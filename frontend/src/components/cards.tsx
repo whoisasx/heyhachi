@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { LiveView } from "./LiveView";
 import { ApiError, post, type Card, type Field } from "@/lib/api";
@@ -7,6 +7,20 @@ import { ApiError, post, type Card, type Field } from "@/lib/api";
 export function CardView({ taskId, seq, card }: { taskId: string; seq: number; card: Card }) {
   const [state, setState] = useState<"idle" | "sending" | "sent">("idle");
   const [error, setError] = useState<string | null>(null);
+  const box = useRef<HTMLDivElement>(null);
+
+  // A new card needs you: bring it into view and put the keyboard on its first control.
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.scrollIntoView({ block: "nearest", behavior: still ? "auto" : "smooth" });
+    // ...unless you're in the middle of typing your next message
+    const typing = document.activeElement as HTMLTextAreaElement | null;
+    if (typing?.id === "composer" && typing.value.trim()) return;
+    const first = el.querySelector<HTMLElement>("input, textarea, button:not([disabled])");
+    first?.focus({ preventScroll: true });
+  }, [seq]);
 
   async function submit(fn: () => Promise<unknown>) {
     setState("sending");
@@ -14,6 +28,8 @@ export function CardView({ taskId, seq, card }: { taskId: string; seq: number; c
     try {
       await fn();
       setState("sent");
+      // answered: back to the message box
+      document.getElementById("composer")?.focus({ preventScroll: true });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Couldn't send. Try again.");
       setState("idle");
@@ -25,7 +41,7 @@ export function CardView({ taskId, seq, card }: { taskId: string; seq: number; c
 
   if (state === "sent")
     return (
-      <div className="card flex items-center gap-2 px-4 py-3 text-muted">
+      <div role="status" className="card flex items-center gap-2 px-4 py-3 text-muted">
         <span className="grid h-4 w-4 place-items-center rounded-full bg-ok text-[9px] text-white">✓</span>
         Sent. Continuing…
       </div>
@@ -34,7 +50,7 @@ export function CardView({ taskId, seq, card }: { taskId: string; seq: number; c
   const head = HEAD[card.kind] ?? HEAD.question;
 
   return (
-    <div className="card">
+    <div ref={box} role="region" aria-label={card.title ?? "Hachi needs you"} className="card scroll-mb-40">
       <div className="flex items-center gap-3 border-b border-border px-4 py-3">
         <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl text-sm font-semibold ${head.tone}`}>
           {card.site ? card.site.charAt(0).toUpperCase() : head.icon}
@@ -59,13 +75,32 @@ export function CardView({ taskId, seq, card }: { taskId: string; seq: number; c
       {card.kind === "question" && <QuestionForm card={card} busy={busy} onAnswer={(text) => input("answer", { data: { text } })} />}
 
       {card.kind === "confirm" && (
-        <div className="flex gap-2">
-          <button className="btn-primary" disabled={busy} onClick={() => input("confirm", { data: { decision: "approve" } })}>
-            Approve
-          </button>
-          <button className="btn-ghost" disabled={busy} onClick={() => input("confirm", { data: { decision: "reject" } })}>
-            Reject
-          </button>
+        <div className="space-y-3">
+          {(card.site || card.amount) && (
+            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-lg bg-sunk px-3 py-2.5 text-[0.8rem]">
+              {card.site && (
+                <>
+                  <dt className="text-muted">Where</dt>
+                  <dd className="font-medium">{card.site}</dd>
+                </>
+              )}
+              {card.amount && (
+                <>
+                  <dt className="text-muted">Amount</dt>
+                  <dd className="font-medium">{card.amount}</dd>
+                </>
+              )}
+            </dl>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <button className="btn-primary" disabled={busy} onClick={() => input("confirm", { data: { decision: "approve" } })}>
+              {card.amount ? `Approve · ${card.amount}` : "Approve"}
+            </button>
+            <button className="btn-ghost" disabled={busy} onClick={() => input("confirm", { data: { decision: "reject" } })}>
+              Don&apos;t do it
+            </button>
+          </div>
+          <p className="text-xs text-muted">If you don&apos;t approve, I stop here and nothing is done.</p>
         </div>
       )}
 
@@ -106,7 +141,7 @@ export function CardView({ taskId, seq, card }: { taskId: string; seq: number; c
         />
       )}
 
-      {error && <p className="text-danger">{error}</p>}
+      {error && <p role="alert" className="text-danger">{error}</p>}
       </div>
     </div>
   );
@@ -114,7 +149,7 @@ export function CardView({ taskId, seq, card }: { taskId: string; seq: number; c
 
 const HEAD: Record<string, { icon: string; tone: string }> = {
   question: { icon: "?", tone: "bg-accent-soft text-accent" },
-  confirm: { icon: "!", tone: "bg-warn-soft text-warn" },
+  confirm: { icon: "✓", tone: "bg-warn-soft text-warn" },
   otp: { icon: "#", tone: "bg-sunk" },
   connect: { icon: "→", tone: "bg-sunk" },
   secure_input: { icon: "🔒", tone: "bg-sunk" },

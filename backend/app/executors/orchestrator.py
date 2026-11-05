@@ -167,9 +167,17 @@ TOOLS: list[dict[str, Any]] = [
             "type": "object",
             "properties": {
                 "site": {"type": "string"},
+                "action": {
+                    "type": "string",
+                    "description": "Short button-style title, e.g. 'Place the order'",
+                },
                 "summary": {
                     "type": "string",
                     "description": "Exactly what will happen, e.g. 'Order 1 Paneer Roll, ₹249'",
+                },
+                "amount": {
+                    "type": "string",
+                    "description": "Total money involved with currency, e.g. '₹249', if any",
                 },
             },
             "required": ["site", "summary"],
@@ -422,8 +430,9 @@ class Orchestrator:
                 "confirm",
                 {
                     "site": normalize_site(str(args.get("site", ""))),
-                    "title": "Confirm",
+                    "title": str(args.get("action") or "").strip() or "Confirm",
                     "body": summary,
+                    **({"amount": str(args["amount"]).strip()} if args.get("amount") else {}),
                 },
             )
             decision = answer.get("decision", "reject")

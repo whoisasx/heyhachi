@@ -36,7 +36,13 @@ class FakeExecutor:
         if "confirm" in text and not checkpoint.get("confirmed"):
             answer = await ctx.ask(
                 "confirm",
-                {"title": "Go ahead?", "body": f"About to: {ctx.request_text}"},
+                {
+                    "site": "swiggy.com",
+                    "title": "Place the order",
+                    "body": "1 × Paneer Biryani (Medium) to Home, Indiranagar. "
+                    "Paid with your saved UPI.",
+                    "amount": "₹289",
+                },
             )
             if answer.get("decision") != "approve":
                 await ctx.finish("Okay, I won't do that.", {"approved": False})
@@ -74,7 +80,14 @@ class FakeExecutor:
             checkpoint["logged_in"] = True
             await ctx.save_checkpoint(checkpoint)
         if "otp" in text and not checkpoint.get("otp"):
-            await ctx.ask("otp", {"site": "swiggy.com", "title": "Enter the code", "body": "Swiggy sent a 6-digit code to your phone."})
+            await ctx.ask(
+                "otp",
+                {
+                    "site": "swiggy.com",
+                    "title": "Enter the code",
+                    "body": "Swiggy sent a 6-digit code to your phone.",
+                },
+            )
             checkpoint["otp"] = True
             await ctx.save_checkpoint(checkpoint)
 
@@ -87,7 +100,8 @@ class FakeExecutor:
         if "rich" in text:
             reply = (
                 "Here's what I found on **whoisasx/heyhachi**:\n\n"
-                "| Metric | Value |\n|---|---|\n| Stars | 128 |\n| Forks | 14 |\n| Open issues | 3 |\n\n"
+                "| Metric | Value |\n|---|---|\n| Stars | 128 |\n| Forks | 14 |\n"
+                "| Open issues | 3 |\n\n"
                 "- Last commit 2 hours ago\n- Main language: TypeScript\n\n"
                 "[Open the repo](https://github.com/whoisasx/heyhachi)\n\n"
                 "https://github.com/whoisasx/heyhachi/stargazers?tab=stars&utm_source=hachi&very_long_query=abcdefghijklmnopqrstuvwxyz0123456789"

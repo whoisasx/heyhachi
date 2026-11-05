@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from app.auth import CurrentUser
 from app.errors import APIError, not_found
 from app.models import ACTIVE_STATUSES, AuditLog, Conversation, Message, Task, TaskEvent
+from app.routes.limits import too_many_tasks
 from app.schemas import (
     ConversationCreated,
     ConversationDetail,
@@ -201,7 +202,7 @@ async def send_message(
             select(func.count()).where(Task.user_id == user.id, Task.status.in_(ACTIVE_STATUSES))
         )
         if active_count >= state.settings.max_active_tasks_per_user:
-            raise APIError(429, "too_many_active_tasks", "You already have tasks running.")
+            raise await too_many_tasks(session, user.id)
 
         task = Task(
             id=uuid.uuid4(),

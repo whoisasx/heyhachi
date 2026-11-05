@@ -83,6 +83,25 @@ html[data-theme="dark"] {
   color-scheme: dark;
 }
 
+/* One clear keyboard focus ring everywhere (mouse clicks don't show it). */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+input:focus-visible,
+textarea:focus-visible {
+  outline: none; /* fields show focus with their border instead */
+}
+
+/* Phones zoom into any field with text under 16px; keep fields at 16px on touch screens. */
+@media (pointer: coarse) {
+  input:not([inputmode="numeric"]),
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
 body {
   background: var(--background);
   color: var(--foreground);

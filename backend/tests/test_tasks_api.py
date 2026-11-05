@@ -231,6 +231,24 @@ async def test_one_active_task_per_conversation(client):
     assert resp.json()["error"]["code"] == "task_in_progress"
 
 
+async def test_too_many_tasks_names_the_running_ones(client):
+    running = []
+    for i in range(3):  # max_active_tasks_per_user
+        conv_id, task_id = await start_task(client, f"confirm order {i}")
+        await wait_for_status(client, task_id, "waiting_user")
+        running.append((conv_id, task_id))
+    conv = (await client.post("/conversations")).json()
+    resp = await client.post(
+        f"/conversations/{conv['id']}/messages",
+        json={"content": "one more", "client_message_id": str(uuid.uuid4())},
+    )
+    assert resp.status_code == 429
+    error = resp.json()["error"]
+    assert error["code"] == "too_many_active_tasks"
+    assert [(r["conversation_id"], r["task_id"]) for r in error["details"]["running"]] == running
+    assert error["details"]["running"][0]["title"] == "confirm order 0"
+
+
 async def test_other_users_get_404(client):
     conv_id, task_id = await start_task(client, "hello")
     other = {"Authorization": f"Bearer {make_token(sub='google-user-2', email='x@example.com')}"}

@@ -44,11 +44,13 @@ export function TaskView({
   initialStatus,
   onFinished,
   onLiveView,
+  onStatus,
 }: {
   taskId: string;
   initialStatus: TaskStatus;
   onFinished: () => void;
   onLiveView?: (taskId: string, url: string | null) => void;
+  onStatus?: (taskId: string, status: TaskStatus) => void;
 }) {
   const [events, setEvents] = useState<TaskEvent[]>([]);
   const [open, setOpen] = useState(!TERMINAL.includes(initialStatus));
@@ -114,6 +116,10 @@ export function TaskView({
     return { status, steps, activeCard, liveView, error };
   }, [events, initialStatus, finishedOnOpen]);
 
+  useEffect(() => {
+    onStatus?.(taskId, view.status);
+  }, [onStatus, taskId, view.status]);
+
   const done = TERMINAL.includes(view.status);
   const liveUrl = view.liveView && !done ? view.liveView : null;
   useEffect(() => {
@@ -161,6 +167,8 @@ export function TaskView({
         <button
           className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left"
           onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          aria-label={`${STATUS_LABEL[view.status]}: ${view.steps.at(-1) ?? ""}. ${open ? "Hide" : "Show"} ${view.steps.length} steps`}
         >
           <StepIcon state={done ? (view.status === "done" ? "ok" : "bad") : view.status === "waiting_user" ? "wait" : "run"} />
           <span className={`font-medium ${tone}`}>{STATUS_LABEL[view.status]}</span>
@@ -206,7 +214,7 @@ export function TaskView({
         )}
 
         {view.error && view.status === "failed" && (
-          <p className="border-t border-border px-4 py-2.5 text-danger">{view.error.message}</p>
+          <p role="alert" className="border-t border-border px-4 py-2.5 text-danger">{view.error.message}</p>
         )}
 
         {(canResume || canRestart) && (
