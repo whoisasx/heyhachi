@@ -297,8 +297,6 @@ main:has(> .page-meadow) {
   .pet, .pet *, .pet-sparkle { animation: none !important; transition: none !important; }
 }
 
-/* Faint meadow behind the chat page and inside the chat box (components/ChatScene.tsx) */
-.chat-meadow { opacity: 0.08; filter: blur(2px) saturate(0.9); }
-[data-theme="dark"] .chat-meadow { opacity: 0.06; }
+/* Faint meadow inside the chat box (components/ChatScene.tsx) */
 .chat-meadow-box { opacity: 0.12; filter: blur(10px) saturate(1.1); scale: 1.15; }
 [data-theme="dark"] .chat-meadow-box { opacity: 0.09; }

@@ -8,7 +8,7 @@ import remarkGfm from "remark-gfm";
 
 import { ApiError, cachedChat, loadChat, post, type ConversationDetail, type TaskStatus } from "@/lib/api";
 import { CHAT_RENAMED, refreshChats, useUser } from "./Sidebar";
-import { BoxMeadow, ChatMeadow } from "./ChatScene";
+import { BoxMeadow } from "./ChatScene";
 import { Paw } from "./Logo";
 import { TaskView } from "./TaskView";
 
@@ -222,7 +222,6 @@ export function ChatApp() {
   return (
       <div className="flex min-h-0 flex-1">
         <main className="relative isolate flex min-w-0 flex-1 flex-col">
-          <ChatMeadow />
           {activeId && detail && (
             <div className="flex items-center gap-3 border-b border-border px-6 py-3.5">
               <h1 className="display truncate text-[1.1rem] leading-tight">{title ?? "New chat"}</h1>
