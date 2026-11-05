@@ -2,16 +2,20 @@
 
 A chat assistant that does tasks on real websites using a background cloud browser, and manages access to those sites safely: passwords, TOTP 2FA, SMS OTPs, API keys, saved sessions, and revocation. Secrets never appear in chat or model input.
 
-Status: phases 4.1–4.5 done (backend, orchestrator, browser tool, vault, frontend). See [PLAN.md](docs/PLAN.md) for progress.
+**Live:** https://browser-agent-drab.vercel.app (Google sign-in is in testing mode: only listed test users can sign in).
+
+Status: phases 4.1–4.6 done and deployed; demo video and the live test run are left. See [PLAN.md](docs/PLAN.md).
 
 - [Plan](docs/PLAN.md): demo scenarios, keys, build phases
 - [Architecture](docs/ARCHITECTURE.md): components, task lifecycle, data model, crash recovery, secrets
 - [Schema](docs/SCHEMA.md): database tables, JSON shapes, event types
 - [API](docs/API.md): HTTP routes, SSE stream, auth, errors
+- [Access management](docs/ACCESS.md): choices and known limits
+- [Reliability test list](docs/RELIABILITY.md): manual end-to-end checks
 
 ## Stack
 
-Next.js + Auth.js (Google) on Vercel · FastAPI (Python) on Railway · Postgres (Neon) · Claude API · browser-use on Browser Use Cloud
+Next.js + Auth.js (Google) on Vercel · FastAPI (Python) on Railway · Postgres (Railway) · Claude API · browser-use on Browser Use Cloud
 
 ## Setup
 
@@ -38,6 +42,12 @@ npm install
 # and optionally AUTH_DEV_LOGIN=1 for a local sign-in without Google
 npm run dev                   # http://localhost:3000
 ```
+
+## Deploy
+
+- **Backend (Railway):** `cd backend && railway up --service backend`. Builds `backend/Dockerfile` (migrates, then serves; no Chrome: the browser runs in Browser Use Cloud). Run **one replica**: tasks live in the process and are recovered from checkpoints after a restart. Env: `DATABASE_URL`, `BACKEND_JWT_SECRET`, `VAULT_MASTER_KEY`, `ANTHROPIC_API_KEY`, `BROWSER_USE_API_KEY`, `FRONTEND_URL`, `ENVIRONMENT=production`, optional `BROWSER_PROXY_COUNTRY` (e.g. `in`). It refuses to start in production if one is missing.
+- **Frontend (Vercel):** `cd frontend && vercel deploy --prod`. Env: `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `BACKEND_JWT_SECRET` (same as the backend), `NEXT_PUBLIC_BACKEND_URL`. Never set `AUTH_DEV_LOGIN` there.
+- **Google client:** add `https://<frontend>/api/auth/callback/google` as a redirect URI.
 
 ## Tests
 

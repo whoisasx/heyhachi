@@ -35,18 +35,18 @@ Keys go in `.env` (git-ignored). See `.env.example` for the full list. Never pas
 | Anthropic API | Orchestrator + browser agent LLM | Set a monthly spending limit |
 | Browser Use Cloud | Cloud Chrome, live view, proxies | $5 minimum top-up; set `max_steps` per task |
 | Google OAuth client | App sign-in (Auth.js) | Consent screen in testing mode only allows added test users |
-| Neon Postgres | Database | Free tier is enough |
+| Postgres | Database | Railway Postgres in production (Neon also works) |
 | Railway (or Render/Fly) | Backend hosting | Must be a long-running server, not serverless |
 | Vercel | Frontend hosting | |
 | Vault master key | Encrypts stored secrets | Self-generated: `python -c "import secrets; print(secrets.token_hex(32))"` |
 
-- [ ] Anthropic key
-- [ ] Browser Use Cloud key
+- [x] Anthropic key
+- [x] Browser Use Cloud key
 - [x] Google OAuth client ID + secret (client `browser-agent-local`, testing mode)
-- [ ] Neon database URL
-- [ ] Railway project
-- [ ] Vercel project
-- [ ] Vault master key generated
+- [x] Database: Railway Postgres (instead of Neon)
+- [x] Railway project
+- [x] Vercel project
+- [x] Vault master key generated (separate dev and production keys)
 
 ---
 
@@ -110,7 +110,8 @@ Note: a normal (not irreversible) step that was in progress during a crash can r
 Already in place from earlier phases: crash recovery on startup (4.1), step and cost limits (4.2), confirmations (4.4), result checks by browser-use's judge (4.3).
 
 **4.7 (in progress).** Done so far: `BROWSER_BACKEND=cloud` runs tasks and "log in myself" on Browser Use Cloud (live view URL shown in the chat, optional proxy country; India is supported, which settles the Swiggy question); backend `Dockerfile` (migrates, then serves; no Chrome inside; one replica only) checked locally; production refuses to start without its keys; frontend production build passes; [RELIABILITY.md](RELIABILITY.md) test list and [ACCESS.md](ACCESS.md) note written.
-Left: Browser Use Cloud key, Neon database, backend host, Vercel deploy, add the production redirect URI to the Google client, run the test list, demo video.
+Deployed 2026-11-05: frontend https://browser-agent-drab.vercel.app (Vercel), backend on Railway with Railway Postgres (not Neon: one account fewer, private network), Browser Use Cloud browsers (checked: a cloud browser opened a page and returned a live view URL). Production secrets are new (not the dev ones) and live only in the hosts and the private notes file. The Google client has the production redirect URI.
+Left: confirm Google sign-in on the live site, run the test list, demo video.
 
 ### Testing approach
 
@@ -123,6 +124,6 @@ Left: Browser Use Cloud key, Neon database, backend host, Vercel deploy, add the
 ## Deliverables (from the assignment)
 
 - [ ] Runnable repo
-- [ ] Deployed link
+- [x] Deployed link: https://browser-agent-drab.vercel.app
 - [ ] ~2-minute demo video
 - [ ] Short note on access-management choices and known limits
