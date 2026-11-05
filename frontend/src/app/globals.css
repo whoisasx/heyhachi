@@ -257,3 +257,16 @@ body {
   .demo-cursor, .demo-star-off { opacity: 0; }
   .demo-star-on { opacity: 1; }
 }
+
+/* New-chat screen: a soft accent glow behind the heading */
+.home-glow {
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 22%, transparent), transparent);
+  filter: blur(20px);
+  animation: home-glow 8s ease-in-out infinite alternate;
+}
+@keyframes home-glow {
+  to { scale: 1.12; opacity: 0.8; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-glow { animation: none; }
+}

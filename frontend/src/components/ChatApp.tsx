@@ -7,18 +7,41 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { ApiError, cachedChat, loadChat, post, type ConversationDetail, type TaskStatus } from "@/lib/api";
-import { refreshChats } from "./Sidebar";
+import { refreshChats, useUser } from "./Sidebar";
 import { TaskView } from "./TaskView";
 
 const EXAMPLES = [
-  "How many stars does browser-use/browser-use have on GitHub?",
-  "Star the repo browser-use/browser-use",
-  "Ask a free model on OpenRouter to write a haiku",
+  {
+    title: "Check a repo's stars",
+    prompt: "How many stars does browser-use/browser-use have on GitHub?",
+    site: "github.com",
+    icon: "M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z",
+  },
+  {
+    title: "Star a repo for me",
+    prompt: "Star the repo browser-use/browser-use",
+    site: "github.com",
+    icon: "M9 18l6-6-6-6",
+  },
+  {
+    title: "Ask an AI model",
+    prompt: "Ask a free model on OpenRouter to write a haiku",
+    site: "openrouter.ai",
+    icon: "M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M6 18l2-2M16 8l2-2",
+  },
 ];
+
+function greeting(name: string | null) {
+  const h = new Date().getHours();
+  const part = h < 5 ? "Up late" : h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+  const first = name?.split(" ")[0];
+  return first ? `${part}, ${first}` : part;
+}
 
 export function ChatApp() {
   // The open chat lives in the URL (?c=), so sidebar links and back/forward just work.
   const activeId = useSearchParams().get("c");
+  const { name } = useUser();
   const [loaded, setLoaded] = useState<ConversationDetail | null>(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -208,20 +231,36 @@ export function ChatApp() {
                 </div>
               )}
               {empty && (
-                <div className="mt-[14vh] flex flex-col items-center text-center">
-                  <h1 className="display text-4xl">What should I do?</h1>
-                  <p className="mt-3 text-sm text-muted">
+                <div className="relative mt-[10vh] flex flex-col items-center text-center">
+                  {/* soft glow behind the heading, like the sign-in page */}
+                  <span aria-hidden className="home-glow pointer-events-none absolute -top-24 left-1/2 h-72 w-[38rem] max-w-[120%] -translate-x-1/2 rounded-full" />
+                  <span className="relative mb-5 inline-flex items-center gap-2 rounded-full border border-border bg-surface/80 px-3 py-1 text-xs text-muted backdrop-blur">
+                    <span className="h-1.5 w-1.5 rounded-full bg-ok" />
+                    {greeting(name)}
+                  </span>
+                  <h1 className="display relative text-[2.6rem] leading-[1.05] sm:text-5xl">
+                    What should I
+                    <br />
+                    <span className="text-accent">get done?</span>
+                  </h1>
+                  <p className="relative mt-4 max-w-md text-sm leading-relaxed text-muted">
                     I work in a real browser, and keep your logins, codes and keys out of the chat.
                   </p>
-                  <div className="mt-7 w-full text-left">{composer}</div>
-                  <div className="mt-5 flex flex-wrap justify-center gap-2">
+                  <div className="relative mt-8 w-full text-left">{composer}</div>
+                  <div className="relative mt-6 grid w-full max-w-2xl gap-3 text-left sm:grid-cols-3">
                     {EXAMPLES.map((ex) => (
                       <button
-                        key={ex}
-                        className="rounded-full border border-border bg-surface px-3 py-1.5 text-xs text-muted hover:border-foreground hover:text-foreground"
-                        onClick={() => setDraft(ex)}
+                        key={ex.title}
+                        onClick={() => editMessage(ex.prompt)}
+                        className="group rounded-2xl border border-border bg-surface p-3.5 text-left transition hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-[0_10px_30px_rgba(47,91,234,0.12)]"
                       >
-                        {ex}
+                        <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent-soft text-accent">
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path d={ex.icon} />
+                          </svg>
+                        </span>
+                        <span className="mt-3 block text-sm font-medium">{ex.title}</span>
+                        <span className="mt-0.5 block text-xs text-muted">{ex.site}</span>
                       </button>
                     ))}
                   </div>
