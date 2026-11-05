@@ -76,7 +76,7 @@
 /* Everything is sized in rem, so this one value scales the whole UI.
    Tuned by eye at 100% browser zoom. */
 html {
-  font-size: 16.5px;
+  font-size: 15px;
   color-scheme: light;
 }
 html[data-theme="dark"] {
