@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ApiError, api, post, type Field } from "@/lib/api";
 import { SecureForm } from "./cards";
 import { useConfirm } from "./Confirm";
+import { LiveView } from "./LiveView";
 import { Select } from "./Select";
 import { PageSection } from "./Sidebar";
 
@@ -228,7 +229,7 @@ function AddAccess({ onChange, onError }: { onChange: () => void; onError: (e: s
   const [site, setSite] = useState("");
   const [kind, setKind] = useState("login");
   const [busy, setBusy] = useState(false);
-  const [login, setLogin] = useState<{ id: string; site: string } | null>(null);
+  const [login, setLogin] = useState<{ id: string; site: string; live_view_url?: string | null } | null>(null);
 
   async function run(fn: () => Promise<unknown>) {
     setBusy(true);
@@ -244,6 +245,35 @@ function AddAccess({ onChange, onError }: { onChange: () => void; onError: (e: s
   }
 
   const spec = KINDS.find((k) => k.kind === kind);
+
+  const doneButtons = login && (
+    <>
+      <button
+        className="btn-primary"
+        disabled={busy}
+        onClick={() =>
+          run(async () => {
+            await post(`/vault/live-login/${login.id}/complete`, {});
+            setLogin(null);
+          })
+        }
+      >
+        Done, I&apos;m signed in
+      </button>
+      <button
+        className="btn-ghost"
+        disabled={busy}
+        onClick={() =>
+          run(async () => {
+            await post(`/vault/live-login/${login.id}/cancel`, {});
+            setLogin(null);
+          })
+        }
+      >
+        Cancel
+      </button>
+    </>
+  );
 
   return (
     <PageSection title="Add access" note="Save a login, key or card now, so tasks don't have to stop and ask.">
@@ -264,36 +294,16 @@ function AddAccess({ onChange, onError }: { onChange: () => void; onError: (e: s
         {kind === "login" ? (
           login ? (
             <div className="space-y-2 text-sm">
-              <p className="rounded-lg bg-sunk px-3 py-2 text-xs">
-                A sign-in window has opened. Sign in to {login.site} there, then click Done. Your password
-                stays in that window; we only save the signed-in session.
-              </p>
-              <div className="flex gap-2">
-                <button
-                  className="btn-primary"
-                  disabled={busy}
-                  onClick={() =>
-                    run(async () => {
-                      await post(`/vault/live-login/${login.id}/complete`, {});
-                      setLogin(null);
-                    })
-                  }
-                >
-                  Done, I&apos;m signed in
-                </button>
-                <button
-                  className="btn-ghost"
-                  disabled={busy}
-                  onClick={() =>
-                    run(async () => {
-                      await post(`/vault/live-login/${login.id}/cancel`, {});
-                      setLogin(null);
-                    })
-                  }
-                >
-                  Cancel
-                </button>
-              </div>
+              {login.live_view_url ? (
+                <LiveView url={login.live_view_url} title={`Sign in to ${login.site}`} actions={doneButtons} />
+              ) : (
+                <p className="rounded-lg bg-sunk px-3 py-2 text-xs">
+                  A Chrome window opened on the computer running Hachi. Sign in to {login.site} there, then click
+                  Done.
+                </p>
+              )}
+              <p className="text-xs text-muted">Your password stays in that browser; we only save the signed-in session.</p>
+              <div className="flex gap-2">{doneButtons}</div>
             </div>
           ) : (
             <button
@@ -301,7 +311,7 @@ function AddAccess({ onChange, onError }: { onChange: () => void; onError: (e: s
               disabled={busy || !site.trim()}
               onClick={() =>
                 run(async () => {
-                  const res = await post<{ id: string; site: string }>("/vault/live-login", { site });
+                  const res = await post<{ id: string; site: string; live_view_url?: string | null }>("/vault/live-login", { site });
                   setLogin(res);
                 })
               }

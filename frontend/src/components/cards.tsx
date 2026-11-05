@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 
+import { LiveView } from "./LiveView";
 import { ApiError, post, type Card, type Field } from "@/lib/api";
 
 /** The card a waiting task shows. Secrets go straight to the backend, never into chat. */
@@ -159,12 +160,7 @@ function ConnectChoice({
       {mode === "self" ? (
         <>
           {card.live_view_url ? (
-            <iframe
-              src={card.live_view_url}
-              title="Log in"
-              className="aspect-video w-full rounded-lg border border-border"
-              sandbox="allow-scripts allow-same-origin allow-forms"
-            />
+            <LiveView url={card.live_view_url} title={`Log in to ${card.site}`} />
           ) : (
             <p className="rounded-lg bg-sunk px-3 py-2 text-xs">
               A browser window opened on the computer running the agent. Log in to {card.site}{" "}

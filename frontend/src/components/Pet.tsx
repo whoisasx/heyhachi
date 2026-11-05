@@ -41,16 +41,32 @@ function onScreen(r: DOMRect) {
   return r.width > 0 && r.left >= 0 && r.top >= 40 && r.bottom <= window.innerHeight && r.right + 50 <= window.innerWidth;
 }
 
-/** Where Hachi should be: a spot, "wander", or null (nowhere to sit, so hide). */
-function target(roam: boolean): Spot | "wander" | null {
-  if (roam) {
+/** A strip Hachi strolls along, side to side. */
+interface Pace {
+  x1: number;
+  x2: number;
+  y: number;
+  scale: number;
+}
+
+/**
+ * Where Hachi should be: a spot, a strip to pace, "wander", or null (nowhere to be, so hide).
+ * On the chat page: the chat box, or (roaming) beside the open chat / anywhere.
+ * Elsewhere (Vault, Profile): on top of the "Let Hachi roam" switch, pacing along it when roaming.
+ */
+function target(roam: boolean): Spot | Pace | "wander" | null {
+  const box = document.querySelector('[data-pet="composer"]')?.getBoundingClientRect();
+  if (box && box.width) {
+    if (!roam) return { x: box.right - 52, y: box.top + 3, scale: 1 };
     const r = document.querySelector('[data-pet="active-chat"]')?.getBoundingClientRect();
     if (r && onScreen(r)) return { x: r.right + 24, y: r.bottom + 1, scale: 0.72 };
     return "wander";
   }
-  const r = document.querySelector('[data-pet="composer"]')?.getBoundingClientRect();
-  if (!r || !r.width) return null;
-  return { x: r.right - 52, y: r.top + 3, scale: 1 };
+  const sw = document.querySelector('[data-pet="switch"]')?.getBoundingClientRect();
+  if (!sw || !sw.width || sw.left < 0) return null; // phone menu closed
+  const y = sw.top + 2;
+  if (!roam) return { x: sw.left + 72, y, scale: 0.72 };
+  return { x1: sw.left + 28, x2: sw.right - 28, y, scale: 0.72 };
 }
 
 function randomSpot(): Spot {
@@ -59,6 +75,15 @@ function randomSpot(): Spot {
     y: 120 + Math.random() * Math.max(0, window.innerHeight - 180),
     scale: 1,
   };
+}
+
+/** Somewhere along the strip, a fair way from where Hachi is now. */
+function paceSpot(p: Pace, fromX?: number): Spot {
+  const mid = (p.x1 + p.x2) / 2;
+  const half = Math.max(0, (p.x2 - p.x1) / 2);
+  // head for the other half of the strip, so every stroll is a real one
+  const start = fromX === undefined ? p.x1 : fromX < mid ? mid : p.x1;
+  return { x: start + Math.random() * half, y: p.y, scale: p.scale };
 }
 
 const far = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.abs(a.x - b.x) > 3 || Math.abs(a.y - b.y) > 3;
@@ -84,7 +109,7 @@ export function Pet() {
     let loop: ReturnType<typeof setTimeout>;
     let steps: ReturnType<typeof setTimeout>[] = [];
     let goal: Spot | null = null;
-    let wandering = false;
+    let mode: "wander" | "pace" | null = null; // strolling about rather than sitting at a spot
     let restUntil = 0;
     let shown = false;
 
@@ -124,20 +149,21 @@ export function Pet() {
         shown = false;
         goal = null;
       } else if (!shown) {
-        const spot = t === "wander" ? randomSpot() : t;
+        const spot = t === "wander" ? randomSpot() : "x1" in t ? paceSpot(t) : t;
         shown = true;
         goal = spot;
-        wandering = t === "wander";
+        mode = t === "wander" ? "wander" : "x1" in t ? "pace" : null;
         restUntil = Date.now() + 2500;
         setView({ ...spot, pose: "sit", face: face.current, ms: 0, shown: true });
-      } else if (t === "wander") {
-        if (!wandering || Date.now() >= restUntil) {
-          wandering = true;
-          goal = randomSpot();
+      } else if (t === "wander" || "x1" in t) {
+        const next = t === "wander" ? "wander" : "pace";
+        if (mode !== next || Date.now() >= restUntil) {
+          mode = next;
+          goal = t === "wander" ? randomSpot() : paceSpot(t, now()?.x);
           restUntil = Date.now() + walk(goal) + REST[0] + Math.random() * (REST[1] - REST[0]);
         }
-      } else if (wandering || !goal || far(goal, t)) {
-        wandering = false;
+      } else if (mode || !goal || far(goal, t)) {
+        mode = null;
         goal = t;
         walk(t);
       }
