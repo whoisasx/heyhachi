@@ -50,7 +50,7 @@ export function CardView({ taskId, seq, card }: { taskId: string; seq: number; c
   const head = HEAD[card.kind] ?? HEAD.question;
 
   return (
-    <div ref={box} role="region" aria-label={card.title ?? "Hachi needs you"} className="card scroll-mb-40">
+    <div ref={box} role="region" data-card="open" aria-label={card.title ?? "Hachi needs you"} className="card scroll-mb-40">
       <div className="flex items-center gap-3 border-b border-border px-4 py-3">
         <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl text-sm font-semibold ${head.tone}`}>
           {card.site ? card.site.charAt(0).toUpperCase() : head.icon}
@@ -104,7 +104,7 @@ export function CardView({ taskId, seq, card }: { taskId: string; seq: number; c
         </div>
       )}
 
-      {card.kind === "otp" && <OtpForm busy={busy} onCode={(code) => input("otp", { secret: code })} />}
+      {card.kind === "otp" && <OtpForm site={card.site} busy={busy} onCode={(code) => input("otp", { secret: code })} />}
 
       {card.kind === "connect" && (
         <ConnectChoice
@@ -156,7 +156,14 @@ const HEAD: Record<string, { icon: string; tone: string }> = {
 };
 
 function Lock({ children }: { children: ReactNode }) {
-  return <p className="flex items-center gap-1.5 text-xs text-muted">🔒 {children}</p>;
+  return (
+    <p className="flex items-start gap-1.5 text-xs text-muted">
+      <svg className="mt-px shrink-0" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
+        <path d="M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z" />
+      </svg>
+      <span>{children}</span>
+    </p>
+  );
 }
 
 /** Two ways to connect: log in yourself in the live browser, or give login details. */
@@ -198,15 +205,15 @@ function ConnectChoice({
             <LiveView url={card.live_view_url} title={`Log in to ${card.site}`} />
           ) : (
             <p className="rounded-lg bg-sunk px-3 py-2 text-xs">
-              A browser window opened on the computer running the agent. Log in to {card.site}{" "}
-              there, then come back and click Done. Your password stays in that window.
+              A browser window opened for you. Log in to {card.site} there, then come back and click
+              Done. Hachi never sees what you type.
             </p>
           )}
           <div className="flex flex-wrap items-center gap-3">
             <button className="btn-primary" disabled={busy} onClick={onLoggedIn}>
               Done, I&apos;m logged in
             </button>
-            <Lock>Only the login cookies are saved, encrypted</Lock>
+            <Lock>Only the login is kept, encrypted in your Vault, for {card.site}. Remove it anytime.</Lock>
           </div>
         </>
       ) : (
@@ -214,7 +221,13 @@ function ConnectChoice({
           <p className="text-xs text-muted">
             I&apos;ll log in for you. If {card.site} texts or emails you a code, I&apos;ll ask for it here.
           </p>
-          <SecureForm fields={card.fields ?? []} busy={busy} onSave={onDetails} submitLabel="Save and log in" />
+          <SecureForm
+            fields={card.fields ?? []}
+            busy={busy}
+            onSave={onDetails}
+            submitLabel="Save and log in"
+            note={`Encrypted and kept in your Vault, used only on ${card.site}. Never shown in chat or to the AI. Remove it anytime.`}
+          />
         </>
       )}
     </div>
@@ -250,7 +263,7 @@ function QuestionForm({ card, busy, onAnswer }: { card: Card; busy: boolean; onA
   );
 }
 
-function OtpForm({ busy, onCode }: { busy: boolean; onCode: (c: string) => void }) {
+function OtpForm({ site, busy, onCode }: { site?: string; busy: boolean; onCode: (c: string) => void }) {
   const [code, setCode] = useState("");
   return (
     <form
@@ -272,7 +285,7 @@ function OtpForm({ busy, onCode }: { busy: boolean; onCode: (c: string) => void 
       <button className="btn-primary" disabled={busy || code.length < 4}>
         Submit code
       </button>
-      <Lock>Goes straight to the vault, never into chat</Lock>
+      <Lock>Used once{site ? ` on ${site}` : ""}, then deleted. Never shown in chat or to the AI.</Lock>
     </form>
   );
 }
@@ -282,11 +295,13 @@ export function SecureForm({
   busy,
   onSave,
   submitLabel = "Save securely",
+  note = "Encrypted on arrival. Never shown in chat or to the AI.",
 }: {
   fields: Field[];
   busy: boolean;
   onSave: (secret: Record<string, string>) => void;
   submitLabel?: string;
+  note?: string;
 }) {
   const [values, setValues] = useState<Record<string, string>>({});
   const complete = fields.every((f) => f.optional || values[f.name]?.trim());
@@ -312,7 +327,7 @@ export function SecureForm({
           />
         </label>
       ))}
-      <Lock>Encrypted on arrival. Never shown in chat or to the AI.</Lock>
+      <Lock>{note}</Lock>
       <button className="btn-primary" disabled={busy || !complete}>
         {submitLabel}
       </button>

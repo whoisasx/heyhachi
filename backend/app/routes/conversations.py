@@ -49,19 +49,22 @@ async def list_conversations(
             await session.scalars(query.order_by(Conversation.updated_at.desc()).limit(limit + 1))
         ).all()
         page = convs[:limit]
-        active = dict(
-            (
-                await session.execute(
-                    select(Task.conversation_id, Task.id).where(
-                        Task.conversation_id.in_([c.id for c in page]),
-                        Task.status.in_(ACTIVE_STATUSES),
-                    )
+        rows = (
+            await session.execute(
+                select(Task.conversation_id, Task.id, Task.status).where(
+                    Task.conversation_id.in_([c.id for c in page]),
+                    Task.status.in_(ACTIVE_STATUSES),
                 )
-            ).all()
-        )
+            )
+        ).all()
+        active = {conv_id: (task_id, status) for conv_id, task_id, status in rows}
     items = [
         ConversationSummary(
-            id=c.id, title=c.title, updated_at=c.updated_at, active_task_id=active.get(c.id)
+            id=c.id,
+            title=c.title,
+            updated_at=c.updated_at,
+            active_task_id=active[c.id][0] if c.id in active else None,
+            active_task_status=active[c.id][1] if c.id in active else None,
         )
         for c in page
     ]

@@ -6,10 +6,12 @@ import {
   post,
   streamTask,
   type Card,
+  type TaskBrief,
   type TaskEvent,
   type TaskStatus,
 } from "@/lib/api";
 import { CardView } from "./cards";
+import { LiveView } from "./LiveView";
 
 // Limits and repeated crashes would hit the same wall again: only "Start over".
 const RESTART_ONLY = ["step_limit", "time_limit", "cost_limit", "too_many_attempts"];
@@ -19,6 +21,24 @@ interface TaskError {
   message: string;
   retryable: boolean;
 }
+
+// What went wrong, in plain words, and what to do next.
+const NEXT_STEP: Record<string, string> = {
+  step_limit: "It needed more steps than a task is allowed. Start over with a more specific request.",
+  time_limit: "It ran past the time limit for one task. Start over, maybe with a smaller request.",
+  cost_limit: "It reached the $1 spending limit for one task. Start over with a narrower request.",
+  too_many_attempts: "It failed several times in a row. Try again in a while, or rephrase the request.",
+  waiting_timeout: "I waited too long for your answer. Resume to pick up where I left off.",
+  access_revoked: "Access to the site was removed. Reconnect it in the Vault, then start over.",
+  internal_error: "Resume to try again from the last step, or start over.",
+};
+
+/** "38s", "4m 12s" */
+function duration(ms: number) {
+  const s = Math.max(0, Math.round(ms / 1000));
+  return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`;
+}
+const money = (usd: number) => (usd < 0.01 ? `$${usd.toFixed(3)}` : `$${usd.toFixed(2)}`);
 
 // Older tasks stored technical step text; show it in plain words.
 function friendly(text: string): string {
@@ -45,11 +65,15 @@ export function TaskView({
   onFinished,
   onLiveView,
   onStatus,
+  brief,
+  latest = true,
 }: {
   taskId: string;
   initialStatus: TaskStatus;
   onFinished: () => void;
-  onLiveView?: (taskId: string, url: string | null) => void;
+  brief?: TaskBrief; // cost and timing, from the chat
+  latest?: boolean; // only the newest task in a chat offers Resume / Start over
+  onLiveView?: (taskId: string, url: string | null, site?: string) => void;
   onStatus?: (taskId: string, status: TaskStatus) => void;
 }) {
   const [events, setEvents] = useState<TaskEvent[]>([]);
@@ -58,6 +82,7 @@ export function TaskView({
   const [allSteps, setAllSteps] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
+  const [showLive, setShowLive] = useState(false);
   const retryInFlight = useRef(false);
   const lastSeq = useRef(0);
   const finished = useRef(onFinished);
@@ -90,9 +115,10 @@ export function TaskView({
   const view = useMemo(() => {
     let status: TaskStatus = initialStatus;
     let liveView: string | null = null;
+    let liveSite: string | undefined;
     let error: TaskError | null = null;
     const steps: string[] = [];
-    const resolved = new Set<number>();
+    const resolved = new Map<number, string>(); // card seq -> what you answered
     const cards: { seq: number; card: Card }[] = [];
     for (const e of events) {
       if (e.type === "status") {
@@ -102,8 +128,21 @@ export function TaskView({
       }
       else if (e.type === "progress") steps.push(friendly(String(e.data.text)));
       else if (e.type === "card") cards.push({ seq: e.seq, card: e.data as unknown as Card });
-      else if (e.type === "card_resolved") resolved.add(Number(e.data.card_seq));
-      else if (e.type === "live_view") liveView = finishedOnOpen ? null : ((e.data.url as string) ?? null);
+      else if (e.type === "card_resolved")
+        resolved.set(
+          Number(e.data.card_seq),
+          e.data.answer
+            ? String(e.data.answer)
+            : e.data.outcome === "submitted"
+              ? "Answered"
+              : e.data.outcome === "expired"
+                ? "No answer in time"
+                : "Skipped",
+        );
+      else if (e.type === "live_view") {
+        liveView = finishedOnOpen ? null : ((e.data.url as string) ?? null);
+        liveSite = e.data.site ? String(e.data.site) : undefined;
+      }
       else if (e.type === "error")
         error = {
           code: String(e.data.code ?? "internal_error"),
@@ -113,7 +152,10 @@ export function TaskView({
     }
     const pending = [...cards].reverse().find((c) => !resolved.has(c.seq));
     const activeCard = status === "waiting_user" ? pending : undefined;
-    return { status, steps, activeCard, liveView, error };
+    const answered = cards
+      .filter((c) => resolved.has(c.seq))
+      .map((c) => ({ seq: c.seq, title: c.card.title ?? "Question", answer: resolved.get(c.seq)! }));
+    return { status, steps, activeCard, answered, liveView, liveSite, error };
   }, [events, initialStatus, finishedOnOpen]);
 
   useEffect(() => {
@@ -123,12 +165,28 @@ export function TaskView({
   const done = TERMINAL.includes(view.status);
   const liveUrl = view.liveView && !done ? view.liveView : null;
   useEffect(() => {
-    onLiveView?.(taskId, liveUrl);
-  }, [onLiveView, taskId, liveUrl]);
+    onLiveView?.(taskId, liveUrl, view.liveSite);
+  }, [onLiveView, taskId, liveUrl, view.liveSite]);
   const canRestart =
-    (view.status === "failed" && view.error?.retryable) || view.status === "cancelled";
+    latest && ((view.status === "failed" && view.error?.retryable) || view.status === "cancelled");
   const canResume =
-    view.status === "failed" && view.error?.retryable && !RESTART_ONLY.includes(view.error.code);
+    latest && view.status === "failed" && view.error?.retryable && !RESTART_ONLY.includes(view.error.code);
+
+  // Time spent: ticks while running, fixed once finished.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (done || !brief?.started_at) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [done, brief?.started_at]);
+  const started = brief?.started_at ? Date.parse(brief.started_at) : null;
+  const ended = brief?.finished_at ? Date.parse(brief.finished_at) : done ? null : now;
+  const took = started && ended ? duration(ended - started) : null;
+  const facts = [
+    `${view.steps.length} step${view.steps.length === 1 ? "" : "s"}`,
+    took,
+    done && brief?.cost_usd ? money(brief.cost_usd) : null,
+  ].filter(Boolean);
 
   async function retry(mode: "resume" | "restart") {
     if (retryInFlight.current) return; // a fast double click would send two requests
@@ -173,8 +231,11 @@ export function TaskView({
           <StepIcon state={done ? (view.status === "done" ? "ok" : "bad") : view.status === "waiting_user" ? "wait" : "run"} />
           <span className={`font-medium ${tone}`}>{STATUS_LABEL[view.status]}</span>
           <span className="truncate text-muted">{view.steps.at(-1)}</span>
-          <span className="ml-auto shrink-0 text-xs text-muted">
-            {view.steps.length} step{view.steps.length === 1 ? "" : "s"} {open ? "▴" : "▾"}
+          <span
+            className="ml-auto shrink-0 text-xs text-muted"
+            title={done ? "Steps, time taken and what it cost (AI + browser)" : undefined}
+          >
+            {facts.join(" · ")} {open ? "▴" : "▾"}
           </span>
         </button>
 
@@ -201,20 +262,31 @@ export function TaskView({
           </ol>
         )}
 
-        {/* Narrow screens: live view inline. Wide screens show it in the side panel. */}
+        {/* Narrow screens: live view inline (folded while a card needs you). Wide screens use the side panel. */}
         {liveUrl && (
           <div className="border-t border-border p-3 xl:hidden">
-            <iframe
-              src={liveUrl}
-              title="Live browser"
-              className="aspect-video w-full rounded-lg border border-border"
-              sandbox="allow-scripts allow-same-origin"
-            />
+            {view.activeCard && !showLive ? (
+              <button
+                className="flex w-full items-center gap-2 text-xs text-muted hover:text-foreground"
+                onClick={() => setShowLive(true)}
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-ok" />
+                Live browser{view.liveSite ? ` · ${view.liveSite}` : ""}
+                <span className="ml-auto underline underline-offset-2">Show</span>
+              </button>
+            ) : (
+              <LiveView url={liveUrl} title={`Hachi is browsing${view.liveSite ? ` ${view.liveSite}` : ""}`} />
+            )}
           </div>
         )}
 
         {view.error && view.status === "failed" && (
-          <p role="alert" className="border-t border-border px-4 py-2.5 text-danger">{view.error.message}</p>
+          <div role="alert" className="border-t border-border px-4 py-2.5">
+            <p className="text-danger">{view.error.message}</p>
+            {latest && NEXT_STEP[view.error.code] && (
+              <p className="mt-0.5 text-xs text-muted">{NEXT_STEP[view.error.code]}</p>
+            )}
+          </div>
         )}
 
         {(canResume || canRestart) && (
@@ -234,8 +306,19 @@ export function TaskView({
         )}
       </div>
 
+      {view.answered.map((a) => (
+        <p key={a.seq} className="flex items-center gap-2 px-1 text-xs text-muted">
+          <span className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-sunk text-[9px]" aria-hidden>
+            ↳
+          </span>
+          <span className="min-w-0 truncate">
+            {a.title}: <span className="font-medium text-foreground">{a.answer}</span>
+          </span>
+        </p>
+      ))}
+
       {view.activeCard && (
-        <CardView taskId={taskId} seq={view.activeCard.seq} card={view.activeCard.card} />
+        <CardView key={view.activeCard.seq} taskId={taskId} seq={view.activeCard.seq} card={view.activeCard.card} />
       )}
     </div>
   );

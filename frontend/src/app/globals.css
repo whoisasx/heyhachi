@@ -93,8 +93,15 @@ textarea:focus-visible {
   outline: none; /* fields show focus with their border instead */
 }
 
-/* Phones zoom into any field with text under 16px; keep fields at 16px on touch screens. */
+/* Phones zoom into any field with text under 16px; keep fields at 16px on touch screens.
+   Buttons get a thumb-sized height there too. */
 @media (pointer: coarse) {
+  .btn,
+  .btn-primary,
+  .btn-ghost,
+  .btn-danger {
+    min-height: 44px;
+  }
   input:not([inputmode="numeric"]),
   textarea,
   select {

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { signOutAction } from "@/app/actions";
@@ -27,7 +27,18 @@ export const CHAT_RENAMED = "chat:renamed";
 interface Summary {
   id: string;
   title: string | null;
+  updated_at?: string;
   active_task_id: string | null;
+  active_task_status?: string | null;
+}
+
+/** "Today", "Yesterday", "Previous 7 days", "Older" */
+function dayGroup(iso?: string) {
+  if (!iso) return "Older";
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const days = Math.floor((start.getTime() - new Date(iso).getTime()) / 86_400_000) + 1;
+  return days <= 0 ? "Today" : days === 1 ? "Yesterday" : days <= 7 ? "Previous 7 days" : "Older";
 }
 
 const NAV = [
@@ -44,6 +55,32 @@ const NAV = [
 export function Shell({ email, name, children }: { email: string; name: string | null; children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+
+  // Shortcuts: ⌘K / Ctrl+K search chats, ⌘⇧O / Ctrl+Shift+O new chat, "/" jump to the message box.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey;
+      const typing = (e.target as HTMLElement | null)?.closest("input, textarea, select, [contenteditable]");
+      if (mod && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setOpen(true); // phones: the list lives in the menu
+        requestAnimationFrame(() => document.getElementById("chat-search")?.focus());
+      } else if (mod && e.shiftKey && e.key.toLowerCase() === "o") {
+        e.preventDefault();
+        router.push("/chat");
+        setTimeout(() => document.getElementById("composer")?.focus(), 50);
+      } else if (e.key === "/" && !mod && !typing) {
+        const box = document.getElementById("composer");
+        if (box) {
+          e.preventDefault();
+          box.focus();
+        }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [router]);
 
   return (
     <UserContext.Provider value={{ email, name }}>
@@ -68,12 +105,11 @@ export function Shell({ email, name, children }: { email: string; name: string |
           <Link href="/chat" className="px-2 text-[1.3rem] leading-none">
             <Wordmark />
           </Link>
-          <Link href="/chat" className="btn-primary">
+          <Link href="/chat" className="btn-primary" title="New chat (⌘⇧O)">
             + New chat
           </Link>
 
           <div className="flex min-h-0 flex-1 flex-col">
-            <p className="px-2 pb-1.5 text-[0.68rem] uppercase tracking-wider text-muted">Recent</p>
             <div className="min-h-0 flex-1 overflow-y-auto">
               <Suspense fallback={<ListSkeleton />}>
                 <ChatList onChat={pathname === "/chat"} />
@@ -108,7 +144,7 @@ export function Shell({ email, name, children }: { email: string; name: string |
             </span>
             <ThemeCycle />
             <form action={signOutAction}>
-              <button type="submit" className="rounded-md px-1.5 py-1 text-xs text-muted hover:bg-sunk hover:text-foreground">
+              <button type="submit" className="rounded-md px-1.5 py-1 text-xs text-muted hover:bg-sunk hover:text-foreground pointer-coarse:px-2.5 pointer-coarse:py-3">
                 Sign out
               </button>
             </form>
@@ -116,7 +152,7 @@ export function Shell({ email, name, children }: { email: string; name: string |
         </aside>
 
         <div id="content" tabIndex={-1} className="flex min-w-0 flex-1 flex-col outline-none">
-          <button aria-label="Open menu" className="m-2 mb-0 self-start rounded-md px-2 py-1 text-lg md:hidden" onClick={() => setOpen(true)}>
+          <button aria-label="Open menu" className="m-1 mb-0 grid h-11 w-11 place-items-center self-start rounded-md text-lg md:hidden" onClick={() => setOpen(true)}>
             ☰
           </button>
           {children}
@@ -130,6 +166,7 @@ export function Shell({ email, name, children }: { email: string; name: string |
 function ChatList({ onChat }: { onChat: boolean }) {
   const activeId = useSearchParams().get("c");
   const [chats, setChats] = useState<Summary[] | null>(null);
+  const [query, setQuery] = useState("");
 
   const load = useCallback(
     () =>
@@ -156,21 +193,56 @@ function ChatList({ onChat }: { onChat: boolean }) {
 
   if (chats === null) return <ListSkeleton />;
   // A chat with no title never got a message: don't list it (unless it's the open one).
-  const shown = chats.filter((c) => c.title || (onChat && c.id === activeId));
-  if (shown.length === 0) return <p className="px-2.5 text-sm text-muted">No chats yet</p>;
+  const all = chats.filter((c) => c.title || (onChat && c.id === activeId));
+  const q = query.trim().toLowerCase();
+  const shown = q ? all.filter((c) => (c.title ?? "").toLowerCase().includes(q)) : all;
+  const groups: { label: string; items: Summary[] }[] = [];
+  for (const c of shown) {
+    const label = dayGroup(c.updated_at);
+    if (groups.at(-1)?.label !== label) groups.push({ label, items: [] });
+    groups.at(-1)!.items.push(c);
+  }
+  const search = all.length > 5 && (
+    <div className="px-1 pb-2">
+      <input
+        id="chat-search"
+        type="search"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        onKeyDown={(e) => e.key === "Escape" && setQuery("")}
+        placeholder="Search chats  ⌘K"
+        aria-label="Search chats"
+        className="w-full rounded-lg border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none placeholder:text-muted focus:border-accent"
+      />
+    </div>
+  );
+  if (q && shown.length === 0)
+    return (
+      <>
+        {search}
+        <p className="px-2.5 text-sm text-muted">No chats match “{query.trim()}”</p>
+      </>
+    );
+  if (all.length === 0) return <p className="px-2.5 text-sm text-muted">No chats yet</p>;
   return (
     <>
-      <ul className="flex flex-col gap-0.5">
-        {shown.map((c) => (
-          <ChatRow
-            key={c.id}
-            chat={c}
-            active={onChat && c.id === activeId}
-            onRenamed={(title) => setChats((list) => list?.map((x) => (x.id === c.id ? { ...x, title } : x)) ?? null)}
-            onDeleted={() => setChats((list) => list?.filter((x) => x.id !== c.id) ?? null)}
-          />
-        ))}
-      </ul>
+      {search}
+      {groups.map((g) => (
+        <section key={g.label} aria-label={g.label} className="pb-3">
+          <h2 className="px-2 pb-1 text-[0.68rem] uppercase tracking-wider text-muted">{g.label}</h2>
+          <ul className="flex flex-col gap-0.5">
+            {g.items.map((c) => (
+              <ChatRow
+                key={c.id}
+                chat={c}
+                active={onChat && c.id === activeId}
+                onRenamed={(title) => setChats((list) => list?.map((x) => (x.id === c.id ? { ...x, title } : x)) ?? null)}
+                onDeleted={() => setChats((list) => list?.filter((x) => x.id !== c.id) ?? null)}
+              />
+            ))}
+          </ul>
+        </section>
+      ))}
     </>
   );
 }
@@ -260,16 +332,30 @@ function ChatRow({
         href={`/chat?c=${chat.id}`}
         data-pet={active ? "active-chat" : undefined}
         onMouseEnter={() => void loadChat(chat.id).catch(() => {})}
-        className={`flex w-full items-center gap-2 rounded-lg py-1.5 pl-2.5 pr-2.5 text-left text-sm group-hover:pr-14 group-focus-within:pr-14 ${
+        className={`flex w-full items-center gap-2 rounded-lg py-1.5 pl-2.5 pr-2.5 text-left text-sm group-hover:pr-14 group-focus-within:pr-14 pointer-coarse:min-h-11 ${active ? "pointer-coarse:pr-20" : ""} ${
           active ? "bg-sunk font-medium" : "text-foreground/80 hover:bg-sunk"
         }`}
       >
-        {chat.active_task_id && <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent" />}
+        {chat.active_task_id &&
+          (chat.active_task_status === "waiting_user" ? (
+            <span className="h-2 w-2 shrink-0 rounded-full bg-warn" title="Needs you">
+              <span className="sr-only">Needs you:</span>
+            </span>
+          ) : (
+            <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent" title="Working">
+              <span className="sr-only">Working:</span>
+            </span>
+          ))}
         <span className="truncate" title={chat.title ?? undefined}>
           {chat.title ?? "New chat"}
         </span>
       </Link>
-      <span className="absolute right-1 top-1/2 hidden -translate-y-1/2 items-center group-hover:flex group-focus-within:flex">
+      {/* hover or keyboard shows them; on touch screens the open chat always shows them */}
+      <span
+        className={`absolute right-1 top-1/2 hidden -translate-y-1/2 items-center group-hover:flex group-focus-within:flex ${
+          active ? "pointer-coarse:flex" : ""
+        }`}
+      >
         <RowButton label="Rename" onClick={() => setEditing(true)} d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4" />
         <RowButton label="Delete" onClick={() => void remove()} d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" danger />
       </span>
@@ -284,7 +370,7 @@ function RowButton({ label, onClick, d, danger }: { label: string; onClick: () =
       aria-label={label}
       title={label}
       onClick={onClick}
-      className={`grid h-6 w-6 place-items-center rounded-md text-muted hover:bg-background ${danger ? "hover:text-danger" : "hover:text-foreground"}`}
+      className={`grid h-6 w-6 place-items-center rounded-md text-muted hover:bg-background pointer-coarse:h-9 pointer-coarse:w-9 ${danger ? "hover:text-danger" : "hover:text-foreground"}`}
     >
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <path d={d} />

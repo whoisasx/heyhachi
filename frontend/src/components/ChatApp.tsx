@@ -50,7 +50,7 @@ export function ChatApp() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<ChatError | null>(null);
   const [stopping, setStopping] = useState(false);
-  const [liveView, setLiveView] = useState<{ taskId: string; url: string } | null>(null);
+  const [liveView, setLiveView] = useState<{ taskId: string; url: string; site?: string } | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
 
@@ -105,6 +105,14 @@ export function ChatApp() {
     };
   }, [busy, needsYou]);
 
+  // The message box gets the keyboard when a chat opens and when a task ends
+  // (not on touch screens, where that would pop up the keyboard).
+  useEffect(() => {
+    if (busy || matchMedia("(pointer: coarse)").matches) return;
+    const a = document.activeElement;
+    if (!a || a === document.body || a.id === "content") input.current?.focus({ preventScroll: true });
+  }, [activeId, busy]);
+
   // Errors belong to the chat they happened in; switching chats hides them.
   const shownError = error && error.chat === activeId ? error : null;
 
@@ -132,8 +140,8 @@ export function ChatApp() {
     return () => clearInterval(id);
   }, [busy, activeId, loadDetail]);
 
-  const onLiveView = useCallback((taskId: string, url: string | null) => {
-    setLiveView((cur) => (url ? { taskId, url } : cur?.taskId === taskId ? null : cur));
+  const onLiveView = useCallback((taskId: string, url: string | null, site?: string) => {
+    setLiveView((cur) => (url ? { taskId, url, site } : cur?.taskId === taskId ? null : cur));
   }, [setLiveView]);
 
   async function send(e: { preventDefault(): void }) {
@@ -326,7 +334,8 @@ export function ChatApp() {
           )}
 
           <div className="flex-1 overflow-y-auto">
-            <div role="log" aria-label="Conversation" className="mx-auto flex max-w-3xl flex-col gap-5 px-4 py-7 sm:px-6">
+            {/* extra room at the bottom so Hachi, sitting on the message box, never covers the last card */}
+            <div role="log" aria-label="Conversation" className="mx-auto flex max-w-3xl flex-col gap-5 px-4 pb-16 pt-7 sm:px-6">
               {activeId && !detail && !sending && (
                 <div className="flex flex-col gap-4 pt-2">
                   <span className="h-10 w-1/2 self-end animate-pulse rounded-2xl bg-sunk" />
@@ -381,6 +390,8 @@ export function ChatApp() {
                       key={m.task_id}
                       taskId={m.task_id}
                       initialStatus={taskStatus(m.task_id)}
+                      brief={detail.tasks.find((t) => t.id === m.task_id)}
+                      latest={detail.tasks.at(-1)?.id === m.task_id}
                       onLiveView={onLiveView}
                       onStatus={onStatus}
                       onFinished={() => {
@@ -399,7 +410,7 @@ export function ChatApp() {
           {!empty && composer}
         </main>
 
-        {live && <LivePanel url={live.url} />}
+        {live && <LivePanel url={live.url} site={live.site} onStop={busy ? stop : undefined} stopping={stopping} />}
       </div>
   );
 }
@@ -544,7 +555,7 @@ function MessageActions({ text, at, onEdit, hover }: { text: string; at: string;
   return (
     <div
       className={`flex items-center gap-0.5 text-xs text-muted transition-opacity ${
-        hover ? "opacity-0 focus-within:opacity-100 group-hover:opacity-100" : ""
+        hover ? "opacity-0 focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100" : ""
       }`}
     >
       <time dateTime={at} title={new Date(at).toLocaleString()} className="mr-1">
@@ -569,7 +580,7 @@ function IconButton({ label, onClick, children }: { label: string; onClick: () =
       aria-label={label}
       title={label}
       onClick={onClick}
-      className="grid h-6 w-6 place-items-center rounded-md hover:bg-sunk hover:text-foreground"
+      className="grid h-6 w-6 place-items-center rounded-md hover:bg-sunk hover:text-foreground pointer-coarse:h-10 pointer-coarse:w-10"
     >
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         {children}

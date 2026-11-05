@@ -20,7 +20,17 @@ function savedWidth() {
  * The live browser beside the chat. Drag its left edge (or use the arrow keys on it)
  * to make it wider or narrower; the width is remembered in this browser.
  */
-export function LivePanel({ url }: { url: string }) {
+export function LivePanel({
+  url,
+  site,
+  onStop,
+  stopping,
+}: {
+  url: string;
+  site?: string;
+  onStop?: () => void;
+  stopping?: boolean;
+}) {
   const [width, setWidth] = useState(DEFAULT);
   const [dragging, setDragging] = useState(false);
   const latest = useRef(width);
@@ -79,12 +89,35 @@ export function LivePanel({ url }: { url: string }) {
         />
       </div>
 
-      <div className="flex items-center gap-2 border-b border-border px-4 py-3.5">
-        <span className="h-2 w-2 animate-pulse rounded-full bg-accent" />
-        <span className="text-sm font-medium">Live browser</span>
-        <a href={url} target="_blank" rel="noopener noreferrer" className="ml-auto text-xs text-muted hover:text-foreground">
-          Open in new tab ↗
-        </a>
+      <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+        <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-accent" />
+        <span className="min-w-0">
+          <span className="block text-sm font-medium">Hachi is browsing</span>
+          {site && (
+            <span className="flex items-center gap-1 text-xs text-muted">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden>
+                <path d="M6 11V8a6 6 0 0 1 12 0v3M5 11h14v10H5z" />
+              </svg>
+              <span className="truncate">{site}</span>
+            </span>
+          )}
+        </span>
+        <span className="ml-auto flex shrink-0 items-center gap-1">
+          <a href={url} target="_blank" rel="noopener noreferrer" className="rounded-md px-2 py-1 text-xs text-muted hover:bg-sunk hover:text-foreground">
+            New tab ↗
+          </a>
+          {onStop && (
+            <button
+              type="button"
+              onClick={onStop}
+              disabled={stopping}
+              className="flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs font-medium hover:border-danger hover:text-danger disabled:opacity-50"
+            >
+              <span className="h-2 w-2 rounded-[2px] bg-current" aria-hidden />
+              {stopping ? "Stopping…" : "Stop"}
+            </button>
+          )}
+        </span>
       </div>
       <div className="p-4">
         <iframe

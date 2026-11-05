@@ -111,6 +111,10 @@ export interface Message {
 export interface TaskBrief {
   id: string;
   status: TaskStatus;
+  created_at?: string;
+  started_at?: string | null;
+  finished_at?: string | null;
+  cost_usd?: number;
 }
 
 export interface Conversation {

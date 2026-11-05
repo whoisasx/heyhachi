@@ -7,7 +7,7 @@ Items several reviewers raised independently are marked with how many (×N).
 Note: the "You already have tasks running" error, theme flipping and some empty chats were partly
 caused by six reviewers sharing one account at once. The *handling* of that error is still a real bug.
 
-## P0 — fix first
+## P0 — fix first (done)
 
 1. **No Stop button** (×3). The chat box is locked while a task runs and nothing can halt it.
    Backend already has cancel (`routes/tasks.py`). Add a Stop button in place of Send (and on the
@@ -27,7 +27,7 @@ caused by six reviewers sharing one account at once. The *handling* of that erro
    `:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }`.
 6. **iOS zooms on the chat box** (phone). Composer text is ~13px; inputs need 16px on phones.
 
-## P1 — next
+## P1 — next (done)
 
 7. **Answered cards vanish** (×3). Keep a one-line record: "Size → Medium", "Approved ✓ 3:29".
 8. **Failure state** (×2). "Something went wrong" with no reason; Resume repeats the same failure;

@@ -34,6 +34,7 @@ from app.models import (
     TaskEvent,
     TaskInput,
 )
+from app.secret_scan import find_secret
 
 if TYPE_CHECKING:
     from app.crypto import Vault
@@ -47,6 +48,21 @@ INPUT_KIND_FOR = {
     "question": "answer",
     "credential": "credential_ready",
 }
+
+
+def answer_note(kind: str, data: dict[str, Any] | None) -> str:
+    """A short, secret-free note of what the user answered, kept in the chat's history."""
+    data = data or {}
+    if kind == "confirm":
+        return "Approved" if data.get("decision") == "approve" else "Declined"
+    if kind == "otp":
+        return "Code sent"
+    if kind == "credential":
+        return "Login details saved" if data.get("kind") == "password" else "Connected"
+    text = " ".join(str(data.get("text", "")).split())
+    if not text or find_secret(text):
+        return "Answered"
+    return text if len(text) <= 80 else text[:79] + "…"
 
 
 def make_worker_id() -> str:
@@ -287,7 +303,14 @@ class TaskContext:
 
         await self._apply(
             [
-                ("card_resolved", {"card_seq": card_seq, "outcome": "submitted"}),
+                (
+                    "card_resolved",
+                    {
+                        "card_seq": card_seq,
+                        "outcome": "submitted",
+                        "answer": answer_note(kind, data),
+                    },
+                ),
                 ("status", {"status": "running"}),
             ],
             changes={"status": "running", "waiting_for": None},

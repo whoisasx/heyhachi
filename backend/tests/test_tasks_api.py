@@ -134,7 +134,7 @@ async def test_confirm_card_flow(client):
     card = next(e for e in events if e["event"] == "card")
     assert card["id"] == card_seq
     resolved = next(e for e in events if e["event"] == "card_resolved")
-    assert resolved["data"] == {"card_seq": card_seq, "outcome": "submitted"}
+    assert resolved["data"] == {"card_seq": card_seq, "outcome": "submitted", "answer": "Approved"}
     assert statuses(events) == ["queued", "running", "waiting_user", "running", "verifying", "done"]
 
 

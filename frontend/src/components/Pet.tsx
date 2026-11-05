@@ -57,6 +57,8 @@ interface Pace {
 function target(roam: boolean): Spot | Pace | "wander" | null {
   const box = document.querySelector('[data-pet="composer"]')?.getBoundingClientRect();
   if (box && box.width) {
+    // phones: a card waiting for you needs the whole width; Hachi steps away until it's answered
+    if (window.innerWidth < 640 && document.querySelector('[data-card="open"]')) return null;
     if (!roam) return { x: box.right - 52, y: box.top + 3, scale: 1 };
     const r = document.querySelector('[data-pet="active-chat"]')?.getBoundingClientRect();
     if (r && onScreen(r)) return { x: r.right + 24, y: r.bottom + 1, scale: 0.72 };

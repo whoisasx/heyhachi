@@ -23,6 +23,7 @@ class ConversationSummary(_Out):
     title: str | None
     updated_at: datetime
     active_task_id: uuid.UUID | None = None
+    active_task_status: str | None = None  # "waiting_user" = needs you
 
 
 class ConversationList(BaseModel):
@@ -48,6 +49,9 @@ class TaskBrief(_Out):
     id: uuid.UUID
     status: str
     created_at: datetime
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    cost_usd: float = 0
 
 
 class ConversationDetail(BaseModel):
