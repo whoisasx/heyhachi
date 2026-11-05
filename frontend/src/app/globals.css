@@ -74,9 +74,9 @@
 }
 
 /* Everything is sized in rem, so this one value scales the whole UI.
-   16px felt compact, the mockup felt large; 17px sits between them. */
+   Tuned by eye at 100% browser zoom. */
 html {
-  font-size: 17px;
+  font-size: 16.5px;
   color-scheme: light;
 }
 html[data-theme="dark"] {
