@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { ApiError, api, post, type Field } from "@/lib/api";
-import { SecureForm } from "./cards";
+import { SecureForm } from "./SecureForm";
 import { useConfirm } from "./Confirm";
 import { LiveView } from "./LiveView";
 import { Select } from "./Select";
@@ -31,7 +31,7 @@ interface AuditItem {
 const KINDS: { kind: string; label: string; fields: Field[] }[] = [
   {
     kind: "password",
-    label: "Username & password",
+    label: "Credentials",
     fields: [
       { name: "username", type: "text", label: "Username or email" },
       { name: "password", type: "password", label: "Password" },
@@ -47,8 +47,8 @@ const KINDS: { kind: string; label: string; fields: Field[] }[] = [
     kind: "card",
     label: "Payment card (no CVV)",
     fields: [
-      { name: "number", type: "password", label: "Card number" },
-      { name: "expiry", type: "text", label: "Expiry (MM/YY)" },
+      { name: "number", type: "text", label: "Card number" },
+      { name: "expiry", type: "text", label: "Expiry" },
       { name: "name", type: "text", label: "Name on card" },
     ],
   },
@@ -382,7 +382,7 @@ function AddAccess({ onChange, onError }: { onChange: () => void; onError: (e: s
     <PageSection title="Add access" note="Save a login, key or card now, so tasks don't have to stop and ask.">
       <div className="space-y-3 p-4">
       <div className="grid gap-2 sm:grid-cols-2">
-        <input className="input" aria-label="Site" placeholder="Site, e.g. github.com" value={site} onChange={(e) => setSite(e.target.value)} />
+        <input className="input" aria-label="Website" placeholder="Any website, like swiggy.com" value={site} onChange={(e) => setSite(e.target.value)} />
         <Select
           label="What kind of access"
           value={kind}

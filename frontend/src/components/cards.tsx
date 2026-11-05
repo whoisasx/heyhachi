@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { LiveView } from "./LiveView";
-import { ApiError, post, type Card, type Field } from "@/lib/api";
+import { Lock, SecureForm } from "./SecureForm";
+import { ApiError, post, type Card } from "@/lib/api";
 
 /** The card a waiting task shows. Secrets go straight to the backend, never into chat. */
 export function CardView({ taskId, seq, card }: { taskId: string; seq: number; card: Card }) {
@@ -158,16 +159,6 @@ const HEAD: Record<string, { icon: string; tone: string }> = {
   secure_input: { icon: "M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z", tone: "bg-accent-soft text-accent" },
 };
 
-function Lock({ children }: { children: ReactNode }) {
-  return (
-    <p className="flex items-start gap-1.5 text-xs text-muted">
-      <svg className="mt-px shrink-0" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
-        <path d="M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z" />
-      </svg>
-      <span>{children}</span>
-    </p>
-  );
-}
 
 /** Two ways to connect: log in yourself in the live browser, or give login details. */
 function ConnectChoice({
@@ -293,47 +284,3 @@ function OtpForm({ site, busy, onCode }: { site?: string; busy: boolean; onCode:
   );
 }
 
-export function SecureForm({
-  fields,
-  busy,
-  onSave,
-  submitLabel = "Save securely",
-  note = "Encrypted on arrival. Never shown in chat or to the AI.",
-}: {
-  fields: Field[];
-  busy: boolean;
-  onSave: (secret: Record<string, string>) => void;
-  submitLabel?: string;
-  note?: string;
-}) {
-  const [values, setValues] = useState<Record<string, string>>({});
-  const complete = fields.every((f) => f.optional || values[f.name]?.trim());
-  return (
-    <form
-      className="space-y-2"
-      autoComplete="off"
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSave(values);
-        setValues({}); // don't keep secrets in component state
-      }}
-    >
-      {fields.map((f) => (
-        <label key={f.name} className="block">
-          <span className="text-xs text-muted">{f.label ?? f.name}</span>
-          <input
-            className="input mt-1"
-            type={f.type === "password" ? "password" : "text"}
-            autoComplete={f.type === "password" ? "new-password" : "off"}
-            value={values[f.name] ?? ""}
-            onChange={(e) => setValues((v) => ({ ...v, [f.name]: e.target.value }))}
-          />
-        </label>
-      ))}
-      <Lock>{note}</Lock>
-      <button className="btn-primary" disabled={busy || !complete}>
-        {submitLabel}
-      </button>
-    </form>
-  );
-}
