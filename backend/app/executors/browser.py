@@ -287,6 +287,18 @@ class BrowserUseAgent:
             browser = handle.session
             if handle.live_view_url:
                 await ctx.emit("live_view", {"url": handle.live_view_url, "site": site})
+            fresh: dict[str, Any] = {}
+
+            async def on_done(done_history: Any) -> None:
+                # Runs before browser-use closes the browser, so cookies can
+                # still be read here (afterwards the CDP connection is gone).
+                result = (done_history.final_result() or "").strip()
+                if (saved is not None or secrets) and not result.startswith(LOGIN_REQUIRED):
+                    try:
+                        fresh["state"] = await browser.export_storage_state()
+                    except Exception:
+                        log.warning("couldn't read cookies after the run", exc_info=True)
+
             agent = Agent(
                 task=f"Website: https://{site}\n\nTask: {instruction}\n"
                 + browser_rules(sorted(secrets)),
@@ -295,6 +307,7 @@ class BrowserUseAgent:
                 tools=tools,
                 sensitive_data=scoped,
                 register_new_step_callback=on_step,
+                register_done_callback=on_done,
                 file_system_path=os.path.join(handle.work_dir, "fs"),
                 use_judge=True,  # independent check of the result (verification)
             )
@@ -302,11 +315,10 @@ class BrowserUseAgent:
                 history = await agent.run(max_steps=self.settings.browser_max_steps)
                 final = (history.final_result() or "").strip()
                 logged_out = final.startswith(LOGIN_REQUIRED)
-                if (saved is not None or secrets) and not logged_out:
+                if fresh.get("state") and not logged_out:
                     # Keep fresh cookies so the next task stays logged in.
-                    state = await browser.export_storage_state()
                     await store.save(
-                        ctx.user_id, site, state, source="agent_login", task_id=ctx.task_id
+                        ctx.user_id, site, fresh["state"], source="agent_login", task_id=ctx.task_id
                     )
             finally:
                 # Counted even if the run was cancelled or crashed part-way.

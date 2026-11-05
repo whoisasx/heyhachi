@@ -44,6 +44,7 @@ export function TaskView({
   const [stream, setStream] = useState(0); // bumped to reconnect after a resume
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
+  const retryInFlight = useRef(false);
   const lastSeq = useRef(0);
   const finished = useRef(onFinished);
   useEffect(() => {
@@ -100,6 +101,8 @@ export function TaskView({
     view.status === "failed" && view.error?.retryable && !RESTART_ONLY.includes(view.error.code);
 
   async function retry(mode: "resume" | "restart") {
+    if (retryInFlight.current) return; // a fast double click would send two requests
+    retryInFlight.current = true;
     setRetrying(true);
     setRetryError(null);
     try {
@@ -114,6 +117,7 @@ export function TaskView({
     } catch (err) {
       setRetryError(err instanceof ApiError ? err.message : "Couldn't retry.");
     } finally {
+      retryInFlight.current = false;
       setRetrying(false);
     }
   }
@@ -184,7 +188,7 @@ export function TaskView({
               Start over
             </button>
           )}
-          {retryError && <span className="text-xs text-danger">{retryError}</span>}
+          {retryError && done && <span className="text-xs text-danger">{retryError}</span>}
         </div>
       )}
     </div>
