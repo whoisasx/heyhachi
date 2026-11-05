@@ -100,16 +100,16 @@ def create_app(settings: Settings | None = None, executor: Executor | None = Non
             await app.state.live_logins.shutdown()
             await engine.dispose()
 
-    app = FastAPI(title="Browser Agent API", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="Hachi API", version="0.1.0", lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[settings.frontend_url],
+        allow_origins=settings.frontend_origins,
         allow_methods=["GET", "POST", "PATCH", "DELETE"],
         allow_headers=["Authorization", "Content-Type", "Last-Event-ID"],
         expose_headers=["Server-Timing"],
         max_age=3600,  # fewer preflight requests
     )
-    app.add_middleware(ServerTiming, allow_origin=settings.frontend_url)
+    app.add_middleware(ServerTiming, allow_origin=", ".join(settings.frontend_origins))
     install_error_handlers(app)
     for module in (users, conversations, tasks, vault_routes):
         app.include_router(module.router, prefix="/v1")

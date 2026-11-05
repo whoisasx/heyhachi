@@ -38,7 +38,11 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5433/browser_agent"
     backend_jwt_secret: str = DEV_JWT_SECRET
     jwt_audience: str = "browser-agent-api"
-    frontend_url: str = "http://localhost:3000"
+    frontend_url: str = "http://localhost:3000"  # comma-separated list of allowed sites
+
+    @property
+    def frontend_origins(self) -> list[str]:
+        return [o.strip().rstrip("/") for o in self.frontend_url.split(",") if o.strip()]
 
     # Which task executor runs tasks: "orchestrator" (Claude) or "fake" (tests, offline dev).
     executor: str = "orchestrator"
