@@ -180,3 +180,80 @@ body {
     color: var(--muted);
   }
 }
+
+/* ---- Sign-in page demo (components/AgentDemo.tsx). One 10s loop, all parts in sync. ---- */
+.demo {
+  background: radial-gradient(120% 90% at 20% 0%, #1b2d6b 0%, #0d1533 45%, #080c1b 100%);
+}
+.demo-glow {
+  position: absolute;
+  height: 26rem;
+  width: 26rem;
+  border-radius: 9999px;
+  filter: blur(90px);
+  opacity: 0.35;
+  animation: demo-drift 14s ease-in-out infinite alternate;
+}
+.demo-ask { animation: demo-ask 10s infinite; }
+.demo-steps { animation: demo-box 10s infinite; }
+.demo-step-0 { animation: demo-step-0 10s infinite; }
+.demo-step-1 { animation: demo-step-1 10s infinite; }
+.demo-step-2 { animation: demo-step-2 10s infinite; }
+.demo-step-3 { animation: demo-step-3 10s infinite; }
+.demo-cursor { left: 12%; top: 80%; animation: demo-cursor 10s infinite; }
+.demo-star { animation: demo-star 10s infinite; }
+.demo-star-off { animation: demo-off 10s infinite; }
+.demo-star-on { animation: demo-on 10s infinite; }
+.demo-ripple {
+  position: absolute;
+  inset: 0;
+  border-radius: 0.5rem;
+  border: 2px solid #ffd166;
+  opacity: 0;
+  animation: demo-ripple 10s infinite;
+}
+.demo-chip { animation: demo-float 6s ease-in-out infinite alternate; }
+
+@keyframes demo-drift { to { transform: translate(3rem, 2rem) scale(1.1); } }
+@keyframes demo-float { to { transform: translateY(-10px); } }
+@keyframes demo-ask {
+  0% { opacity: 0; transform: translateY(8px); }
+  6%, 90% { opacity: 1; transform: none; }
+  97%, 100% { opacity: 0; }
+}
+@keyframes demo-box {
+  0%, 9% { opacity: 0; transform: translateY(8px); }
+  12%, 90% { opacity: 1; transform: none; }
+  97%, 100% { opacity: 0; }
+}
+@keyframes demo-step-0 { 0%, 12% { opacity: 0; } 15%, 90% { opacity: 1; } 97%, 100% { opacity: 0; } }
+@keyframes demo-step-1 { 0%, 26% { opacity: 0; } 29%, 90% { opacity: 1; } 97%, 100% { opacity: 0; } }
+@keyframes demo-step-2 { 0%, 46% { opacity: 0; } 49%, 90% { opacity: 1; } 97%, 100% { opacity: 0; } }
+@keyframes demo-step-3 { 0%, 60% { opacity: 0; } 63%, 90% { opacity: 1; } 97%, 100% { opacity: 0; } }
+@keyframes demo-cursor {
+  0%, 20% { left: 12%; top: 80%; opacity: 0; transform: none; }
+  23% { opacity: 1; }
+  42% { left: calc(100% - 4.4rem); top: 1.9rem; transform: none; }
+  44% { transform: scale(0.8); }
+  46% { transform: none; }
+  72% { left: calc(100% - 4.4rem); top: 1.9rem; opacity: 1; }
+  80%, 100% { left: calc(100% - 4.4rem); top: 1.9rem; opacity: 0; }
+}
+@keyframes demo-star {
+  0%, 44% { background: transparent; border-color: rgb(255 255 255 / 0.15); }
+  46%, 92% { background: rgb(255 209 102 / 0.12); border-color: rgb(255 209 102 / 0.5); }
+  97%, 100% { background: transparent; border-color: rgb(255 255 255 / 0.15); }
+}
+@keyframes demo-off { 0%, 44% { opacity: 1; } 46%, 92% { opacity: 0; } 97%, 100% { opacity: 1; } }
+@keyframes demo-on { 0%, 44% { opacity: 0; } 46%, 92% { opacity: 1; } 97%, 100% { opacity: 0; } }
+@keyframes demo-ripple {
+  0%, 43% { opacity: 0; transform: scale(0.9); }
+  44% { opacity: 0.9; transform: scale(0.95); }
+  54%, 100% { opacity: 0; transform: scale(1.5); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .demo *, .demo { animation: none !important; }
+  .demo-cursor, .demo-star-off { opacity: 0; }
+  .demo-star-on { opacity: 1; }
+}
