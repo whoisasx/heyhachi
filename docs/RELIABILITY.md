@@ -30,7 +30,7 @@ Status: **first live run on 2026-11-05** (results below). Automated coverage of 
 | 2 | Pass | Connect card before any action. |
 | 3 | Pass after fix | First run crashed saving cookies (browser-use closed the browser first); fixed by reading cookies in the done callback. Resume then found the repo already starred and didn't click again. |
 | 4 | Pass | New chat, no login prompt; "whoisasx, 20 starred" matches the GitHub API. |
-| 5 | Not run | |
+| 5 | Skipped | Needs the GitHub 2FA setup key re-issued; placeholder + TOTP logic is covered by backend tests (`test_vault.py`). |
 | 6 | Pass after change | The website chat needs a full account login, so the saved key was useless in the browser. Added `call_api`: haiku from a $0 OpenRouter model, $0 spent, key only shown masked. |
 | 7 | Pass | Blocked with "That looks like a secret… It wasn't sent or saved"; logged. |
 | 8 | Partial | Live-view login through the Indian proxy worked; order history and cart read correctly. Last item was out of stock; a replacement item run hit the $1 task limit before the Confirm card. |
