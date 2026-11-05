@@ -16,6 +16,8 @@ export function ChatScene({ scene }: { scene: Scene }) {
       <div className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-[42vh]" aria-hidden>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={MEADOW} alt="" className="scene-horizon h-full w-full object-cover object-[50%_75%]" />
+        {/* shade the very bottom so the small print under the chat box stays readable */}
+        <span className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-background/85 to-transparent" />
       </div>
     );
   if (scene === "glass")
