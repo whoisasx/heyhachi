@@ -503,7 +503,10 @@ export function PageSection({
         </div>
         {action}
       </div>
-      <div className="card mt-3 [&>*:last-child]:border-b-0">{children}</div>
+      {/* not overflow-hidden, so dropdowns inside can open past the edge */}
+      <div className="mt-3 rounded-2xl border border-border bg-surface shadow-[0_1px_2px_rgba(0,0,0,0.04)] [&>*:last-child]:border-b-0">
+        {children}
+      </div>
     </section>
   );
 }

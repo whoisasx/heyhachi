@@ -152,65 +152,32 @@ export function AccountsView() {
             />
           )}
           {sites?.map((s) => (
-            <div key={s.site} className="border-b border-border px-4 py-3.5">
-              <div className="flex items-center gap-3">
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-sunk text-sm font-semibold">
-                  {s.site.charAt(0).toUpperCase()}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium">{s.site.split(".")[0].replace(/^./, (c) => c.toUpperCase())}</p>
-                  <span className="tag">{s.site}</span>
-                </div>
-                {s.session && (
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs ${
-                      s.session.status === "active" ? "bg-ok-soft text-ok" : "bg-warn-soft text-warn"
-                    }`}
-                  >
-                    {SESSION_LABEL[s.session.status] ?? s.session.status}
-                  </span>
-                )}
-                <button
-                  className="btn-ghost px-2.5 py-1 text-xs text-danger"
-                  onClick={async () => {
-                    const ok = await confirm({
-                      title: `Remove everything for ${s.site}?`,
-                      body: "Saved logins, keys and cards for this site are deleted. Any task using them stops.",
-                      confirmLabel: "Remove all",
-                    });
-                    if (ok) void act(() => api(`/vault/sites/${encodeURIComponent(s.site)}`, { method: "DELETE" }));
-                  }}
-                >
-                  Remove all
-                </button>
-              </div>
-              <ul className="mt-2 ml-12 space-y-1 text-sm">
-                {s.session && (
-                  <li className="text-xs text-muted">Signed-in session saved · {when(s.session.updated_at)}</li>
-                )}
-                {s.credentials.map((c) => (
-                  <li key={c.id} className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <span>{kindLabel(c.kind)}</span>
-                    <span className="tag">{c.label}</span>
-                    <span className="text-xs text-muted">
-                      {c.last_used_at ? `Last used ${when(c.last_used_at)}` : "Not used yet"}
-                    </span>
-                    <button
-                      className="text-xs text-danger hover:underline"
-                      onClick={async () => {
-                        const ok = await confirm({
-                          title: `Remove this ${kindLabel(c.kind).toLowerCase()}?`,
-                          body: `It's deleted from ${s.site} for good. The assistant will ask again if a task needs it.`,
-                        });
-                        if (ok) void act(() => api(`/vault/credentials/${c.id}`, { method: "DELETE" }));
-                      }}
-                    >
-                      Remove
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            <SiteBlock
+              key={s.site}
+              site={s}
+              onRemoveAll={async () => {
+                const ok = await confirm({
+                  title: `Remove everything for ${s.site}?`,
+                  body: "Its saved login and keys are deleted. Any task using them stops.",
+                  confirmLabel: "Remove all",
+                });
+                if (ok) void act(() => api(`/vault/sites/${encodeURIComponent(s.site)}`, { method: "DELETE" }));
+              }}
+              onRemove={async (c) => {
+                const ok = await confirm({
+                  title: c ? `Remove this ${kindLabel(c.kind).toLowerCase()}?` : `Remove the saved login for ${s.site}?`,
+                  body: `It's deleted for good. Hachi will ask again if a task needs it.`,
+                  confirmLabel: "Remove",
+                });
+                if (!ok) return;
+                // the signed-in session has no delete of its own: removing the site's only item removes the site
+                void act(() =>
+                  c
+                    ? api(`/vault/credentials/${c.id}`, { method: "DELETE" })
+                    : api(`/vault/sites/${encodeURIComponent(s.site)}`, { method: "DELETE" }),
+                );
+              }}
+            />
           ))}
         </PageSection>
 
@@ -236,6 +203,115 @@ export function AccountsView() {
         </PageSection>
       </div>
     </main>
+  );
+}
+
+/**
+ * A site's logo from Google's favicon service (it sees only the site name, never what's saved),
+ * or its first letter when the site has no real icon (Google then sends a 16px globe).
+ */
+export function SiteLogo({ site, size = 36 }: { site: string; size?: number }) {
+  const [failed, setFailed] = useState(false);
+  return (
+    <span
+      className="grid shrink-0 place-items-center overflow-hidden rounded-xl border border-border bg-surface text-sm font-semibold"
+      style={{ width: size, height: size }}
+    >
+      {failed ? (
+        site.charAt(0).toUpperCase()
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element -- tiny remote favicon
+        <img
+          src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(site)}&sz=64`}
+          alt=""
+          width={size * 0.55}
+          height={size * 0.55}
+          referrerPolicy="no-referrer"
+          onError={() => setFailed(true)}
+          onLoad={(e) => e.currentTarget.naturalWidth <= 16 && setFailed(true)}
+        />
+      )}
+    </span>
+  );
+}
+
+const KIND_ICON: Record<string, string> = {
+  password: "M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z",
+  totp: "M12 8v4l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z",
+  api_key: "M15 7a4 4 0 1 1-3.9 4.9L4 19v2h3v-2h2v-2h2l1.1-1.1A4 4 0 0 1 15 7z",
+  card: "M3 6h18v12H3zM3 10h18",
+  session: "M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3",
+};
+
+/** One site in the Vault: its logo and name, then one tidy row per saved thing. */
+function SiteBlock({
+  site: s,
+  onRemove,
+  onRemoveAll,
+}: {
+  site: Site;
+  onRemove: (c: Cred | null) => void;
+  onRemoveAll: () => void;
+}) {
+  const count = s.credentials.length + (s.session ? 1 : 0);
+  const name = s.site.split(".")[0].replace(/^./, (c) => c.toUpperCase());
+  const rows = [
+    ...(s.session
+      ? [{ key: s.session.id, icon: KIND_ICON.session, title: "Signed-in session", value: SESSION_LABEL[s.session.status] ?? s.session.status, meta: `Saved ${when(s.session.updated_at)}`, cred: null as Cred | null, ok: s.session.status === "active" }]
+      : []),
+    ...s.credentials.map((c) => ({
+      key: c.id,
+      icon: KIND_ICON[c.kind] ?? KIND_ICON.password,
+      title: kindLabel(c.kind),
+      // labels read "t…@example.com · swiggy.com": the site is already in the heading
+      value: c.label.replace(new RegExp(`\\s*·\\s*${s.site.replace(/\./g, "\\.")}$`), ""),
+      meta: c.last_used_at ? `Last used ${when(c.last_used_at)}` : "Not used yet",
+      cred: c as Cred | null,
+      ok: undefined as boolean | undefined,
+    })),
+  ];
+  return (
+    <div className="border-b border-border px-4 py-4">
+      <div className="flex items-center gap-3">
+        <SiteLogo site={s.site} />
+        <div className="min-w-0 flex-1">
+          <p className="font-medium leading-tight">{name}</p>
+          <p className="text-xs text-muted">{s.site}</p>
+        </div>
+        {count > 1 && (
+          <button className="btn-ghost px-2.5 py-1 text-xs text-danger" onClick={onRemoveAll} title={`Remove all ${count} saved items for ${s.site}`}>
+            Remove all ({count})
+          </button>
+        )}
+      </div>
+      <ul className="mt-3 divide-y divide-border overflow-hidden rounded-xl border border-border">
+        {rows.map((r) => (
+          <li key={r.key} className="flex items-center gap-3 bg-background/40 px-3 py-2.5">
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-sunk text-muted">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d={r.icon} />
+              </svg>
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm">{r.title}</p>
+              <p className="truncate text-xs text-muted">
+                {r.ok === undefined ? <span className="font-mono">{r.value}</span> : <span className={r.ok ? "text-ok" : "text-warn"}>{r.value}</span>}
+                <span> · {r.meta}</span>
+              </p>
+            </div>
+            {/* with several items, the session goes with "Remove all"; anything alone gets its own Remove */}
+            {(r.cred || count === 1) && (
+              <button
+                className="shrink-0 rounded-md px-2 py-1 text-xs text-muted hover:bg-sunk hover:text-danger"
+                onClick={() => onRemove(r.cred)}
+              >
+                Remove
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

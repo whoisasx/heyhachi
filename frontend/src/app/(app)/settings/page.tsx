@@ -87,7 +87,9 @@ export default function SettingsPage() {
                     {p}
                   </span>
                 ))}
-                <span className="rounded-full bg-sunk px-2 py-0.5 text-xs">Coming soon</span>
+                <span className="soon-chip inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium">
+                  <span aria-hidden>✦</span> Coming soon
+                </span>
               </div>
             </>
           ) : (

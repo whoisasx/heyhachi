@@ -4,6 +4,7 @@ import type { ConfirmationResult } from "firebase/auth";
 import { useCallback, useEffect, useState } from "react";
 
 import { useConfirm } from "@/components/Confirm";
+import { GoogleMark } from "@/components/GoogleButton";
 import { Select } from "@/components/Select";
 import { PageHeader, PageSection, useUser } from "@/components/Sidebar";
 import { ApiError, api, post } from "@/lib/api";
@@ -21,7 +22,7 @@ export default function ProfilePage() {
         </PageSection>
 
         <PageSection title="Sign-in" note="You sign in with Google. A verified phone number lets Hachi log in to sites for you and only ask you for the code. It's never shared with sites you didn't ask for.">
-          <Row icon="G" title="Google" sub="You sign in with your Google account" badge={<Badge ok>Connected</Badge>} />
+          <Row icon={<GoogleMark size={18} />} title="Google" sub="You sign in with your Google account" badge={<Badge ok>Connected</Badge>} />
           <PhoneRow />
         </PageSection>
       </div>
@@ -37,7 +38,7 @@ function Row({
   action,
   flat,
 }: {
-  icon?: string;
+  icon?: React.ReactNode;
   title: string;
   sub: string;
   badge?: React.ReactNode;
@@ -47,7 +48,7 @@ function Row({
   return (
     <div className={`flex items-center gap-3 px-4 py-3.5 ${flat ? "" : "border-b border-border"}`}>
       {icon && (
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-sunk text-sm font-semibold">{icon}</span>
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-border bg-surface text-sm font-semibold">{icon}</span>
       )}
       <div className="min-w-0 flex-1">
         <p className="font-medium">{title}</p>
@@ -159,7 +160,11 @@ function PhoneRow() {
     <div className="border-b border-border">
       {dialog}
       <Row
-        icon="📱"
+        icon={
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-ok" aria-hidden>
+            <path d="M7 2h10a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zM11 18h2" />
+          </svg>
+        }
         title="Phone"
         sub={phone ? phone.label : state && !enabled ? "Verification isn't set up on this server yet" : "Not added"}
         badge={phone ? <Badge ok>Verified</Badge> : enabled ? <Badge>Not verified</Badge> : undefined}

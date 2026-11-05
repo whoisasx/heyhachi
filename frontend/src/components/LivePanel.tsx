@@ -2,17 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 
-const KEY = "hachi:live-width";
-const MIN = 320;
-const DEFAULT = 432;
-const maxWidth = () => Math.max(MIN, Math.round(window.innerWidth * 0.65));
+const KEY = "hachi:live-width-v2"; // v2: the default got wider
+const MIN = 360;
+const maxWidth = () => Math.max(MIN, Math.round(window.innerWidth * 0.7));
+// About half the window: big enough to read the page Hachi is on.
+const defaultWidth = () => Math.min(maxWidth(), Math.max(MIN, Math.round(window.innerWidth * 0.46)));
 
 function savedWidth() {
   try {
     const n = Number(localStorage.getItem(KEY));
-    return Number.isFinite(n) && n >= MIN ? n : DEFAULT;
+    return Number.isFinite(n) && n >= MIN ? n : defaultWidth();
   } catch {
-    return DEFAULT;
+    return defaultWidth();
   }
 }
 
@@ -31,7 +32,7 @@ export function LivePanel({
   onStop?: () => void;
   stopping?: boolean;
 }) {
-  const [width, setWidth] = useState(DEFAULT);
+  const [width, setWidth] = useState(560);
   const [dragging, setDragging] = useState(false);
   const latest = useRef(width);
 
@@ -119,12 +120,12 @@ export function LivePanel({
           )}
         </span>
       </div>
-      <div className="p-4">
+      <div className="flex min-h-0 flex-1 flex-col p-4">
         <iframe
           src={url}
           title="Live browser"
           // while dragging, the iframe would swallow the mouse and stop the resize
-          className={`aspect-[4/3] w-full rounded-xl border border-border bg-surface ${dragging ? "pointer-events-none" : ""}`}
+          className={`min-h-[280px] w-full flex-1 rounded-xl border border-border bg-surface ${dragging ? "pointer-events-none" : ""}`}
           sandbox="allow-scripts allow-same-origin allow-forms"
         />
         <p className="mt-3 text-xs text-muted">You can click and type in this browser to help. Drag its left edge to resize.</p>

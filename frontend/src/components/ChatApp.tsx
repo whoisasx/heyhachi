@@ -203,6 +203,20 @@ export function ChatApp() {
     }
   }
 
+  // Typing feel: the bottom line glows while keys are going, and fades a moment after.
+  const [typing, setTyping] = useState(false);
+  const typingTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const onType = () => {
+    setTyping(true);
+    clearTimeout(typingTimer.current);
+    typingTimer.current = setTimeout(() => setTyping(false), 700);
+  };
+  // After sending, the box shrinks back to its normal size.
+  useEffect(() => {
+    if (!draft && input.current) input.current.style.height = "";
+  }, [draft]);
+  const hint = useTypewriter(!draft && !busy);
+
   const title = detail?.title;
   // A brand-new chat: the input box sits in the middle of the page, like a home screen.
   // While the first message of a new chat is sending, stay on that screen.
@@ -271,25 +285,34 @@ export function ChatApp() {
               )}
             </div>
           )}
-          <div className={`relative isolate overflow-hidden rounded-2xl border border-border p-3 bg-surface/85 backdrop-blur-md shadow-[0_6px_24px_rgba(0,0,0,0.05)] focus-within:border-foreground/40`}>
+          <div
+            data-typing={typing || undefined}
+            className="composer relative isolate overflow-hidden rounded-2xl border border-border bg-surface/85 p-3 pb-2.5 shadow-[0_6px_24px_rgba(0,0,0,0.05)] backdrop-blur-md"
+          >
             <BoxMeadow />
+            {/* a soft line along the bottom: draws in on focus, glows while you type */}
+            <span className="composer-line" aria-hidden />
             <textarea
               ref={input}
               id="composer"
               aria-label="Message Hachi"
-              className="block max-h-40 min-h-11 w-full resize-none bg-transparent text-sm outline-none placeholder:text-muted"
+              className="composer-input block max-h-52 w-full resize-none bg-transparent px-1 pt-0.5 outline-none placeholder:text-muted"
               rows={empty ? 3 : 2}
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
+              onChange={(e) => {
+                setDraft(e.target.value);
+                onType();
+                // grow with the text, up to the max height
+                e.target.style.height = "auto";
+                e.target.style.height = `${e.target.scrollHeight}px`;
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
                   send(e);
                 }
               }}
-              placeholder={
-                busy ? "Hachi is on it. You can write your next message…" : "Describe what you want done on a website…"
-              }
+              placeholder={busy ? "Hachi is on it. You can write your next message…" : hint}
               readOnly={sending}
               maxLength={4000}
             />
@@ -308,19 +331,31 @@ export function ChatApp() {
                   {stopping ? "Stopping…" : "Stop"}
                 </button>
               ) : (
+              <>
+              {draft.length > 3500 && (
+                <span className={`ml-auto font-mono text-xs tabular-nums ${draft.length >= 4000 ? "text-danger" : "text-muted"}`}>
+                  {4000 - draft.length}
+                </span>
+              )}
               <button
                 aria-label={sending ? "Sending" : "Send"}
-                className={`ml-auto grid h-9 w-9 place-items-center rounded-full bg-foreground text-background transition hover:opacity-85 ${
-                  sending ? "" : "disabled:opacity-30"
-                }`}
+                title="Send (Enter) · new line (Shift+Enter)"
+                className={`grid h-9 w-9 place-items-center rounded-full transition ${draft.length > 3500 ? "" : "ml-auto"} ${
+                  draft.trim() && !sending
+                    ? "bg-accent text-white shadow-[0_4px_14px_color-mix(in_srgb,var(--accent)_45%,transparent)] hover:scale-105"
+                    : "bg-foreground text-background"
+                } ${sending ? "" : "disabled:opacity-30"}`}
                 disabled={sending || busy || !draft.trim()}
               >
                 {sending ? (
                   <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
                 ) : (
-                  "↑"
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M12 19V5M5 12l7-7 7 7" />
+                  </svg>
                 )}
               </button>
+              </>
               )}
             </div>
           </div>
@@ -434,6 +469,49 @@ export function ChatApp() {
   );
 }
 
+/**
+ * The empty box's placeholder types out example tasks, one after another, so it's
+ * clear what you can ask. Still (just the first line) with reduced motion.
+ */
+const HINTS = [
+  "Order a paneer biryani on Swiggy…",
+  "Find the cheapest flight to Delhi next Friday…",
+  "Book a table for two tomorrow at 8pm…",
+  "Star whoisasx/heyhachi on GitHub…",
+  "Describe what you want done on a website…",
+];
+function useTypewriter(on: boolean) {
+  const [text, setText] = useState(HINTS.at(-1)!);
+  useEffect(() => {
+    if (!on || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let hint = 0;
+    let chars = 0;
+    let deleting = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const step = () => {
+      const full = HINTS[hint];
+      chars += deleting ? -1 : 1;
+      setText(full.slice(0, chars) || "\u200b");
+      let wait = deleting ? 22 : 55;
+      if (!deleting && chars === full.length) {
+        deleting = true;
+        wait = 2200;
+      } else if (deleting && chars === 0) {
+        deleting = false;
+        hint = (hint + 1) % HINTS.length;
+        wait = 400;
+      }
+      timer = setTimeout(step, wait);
+    };
+    timer = setTimeout(step, 600);
+    return () => {
+      clearTimeout(timer);
+      setText(HINTS.at(-1)!);
+    };
+  }, [on]);
+  return text;
+}
+
 interface RunningTask {
   task_id: string;
   conversation_id: string;
@@ -484,18 +562,19 @@ const timeOf = (iso: string) => {
 function Bubble({ role, text, at, onEdit }: { role: string; text: string; at: string; onEdit?: () => void }) {
   if (role === "user")
     return (
-      <div className="group flex flex-col items-end gap-1">
-        <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-foreground px-4 py-2.5 text-[0.95rem] leading-relaxed text-background">
+      <div className="msg-in group flex flex-col items-end gap-1">
+        <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-[1.25rem] rounded-br-md border border-accent/15 bg-accent-soft px-4 py-2.5 text-[0.95rem] leading-relaxed text-foreground">
           {text}
         </div>
         <MessageActions text={text} at={at} onEdit={onEdit} hover />
       </div>
     );
   return (
-    <div className="group flex gap-3">
+    <div className="msg-in group flex gap-3">
       <BotMark />
       <div className="min-w-0 flex-1">
-        <div className="prose-reply pt-0.5 text-[0.95rem] leading-[1.6]">
+        <p className="mb-0.5 text-xs font-medium text-muted">Hachi</p>
+        <div className="prose-reply text-[0.95rem] leading-[1.65]">
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             components={{
@@ -505,6 +584,12 @@ function Bubble({ role, text, at, onEdit }: { role: string; text: string; at: st
                   <table>{children}</table>
                 </div>
               ),
+              pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
+              img: ({ src, alt }) =>
+                typeof src === "string" ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- images from replies, any host
+                  <img src={src} alt={alt ?? ""} loading="lazy" referrerPolicy="no-referrer" className="reply-img" />
+                ) : null,
             }}
           >
             {text}
@@ -531,6 +616,38 @@ function hostOf(href?: string) {
  * Links in replies. A bare URL becomes a small card (site name + "Open"), so long
  * signed links never spill across the page; a labelled link stays inline.
  */
+/** A fenced code block: the language on top, a Copy button, and sideways scrolling. */
+function CodeBlock({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLPreElement>(null);
+  const [copied, setCopied] = useState(false);
+  const child = Array.isArray(children) ? children[0] : children;
+  const cls = (child as { props?: { className?: string } } | undefined)?.props?.className ?? "";
+  const lang = /language-([\w+-]+)/.exec(cls)?.[1];
+  return (
+    <div className="reply-code">
+      <div className="flex items-center justify-between border-b border-border px-3 py-1.5 text-xs text-muted">
+        <span className="font-mono">{lang ?? "text"}</span>
+        <button
+          type="button"
+          className="rounded px-1.5 py-0.5 hover:bg-background hover:text-foreground"
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(ref.current?.innerText ?? "");
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1500);
+            } catch {
+              /* clipboard blocked */
+            }
+          }}
+        >
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+      <pre ref={ref}>{children}</pre>
+    </div>
+  );
+}
+
 /** URLs the reply already links with a label, like [Open the repo](url). */
 function labelledLinks(markdown: string) {
   return new Set([...markdown.matchAll(/\[[^\]]+\]\((https?:\/\/[^)\s]+)\)/g)].map((m) => m[1]));
