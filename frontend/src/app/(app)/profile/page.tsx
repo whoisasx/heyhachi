@@ -250,6 +250,17 @@ function PhoneRow() {
             🔒 The code is checked by Google (Firebase). We keep only the number, encrypted, and use it when a site asks
             you to log in with your phone.
           </p>
+          <p className="text-xs text-muted">
+            Protected by reCAPTCHA. Google&apos;s{" "}
+            <a className="underline" href="https://policies.google.com/privacy" target="_blank" rel="noreferrer">
+              Privacy Policy
+            </a>{" "}
+            and{" "}
+            <a className="underline" href="https://policies.google.com/terms" target="_blank" rel="noreferrer">
+              Terms
+            </a>{" "}
+            apply.
+          </p>
         </div>
       )}
       {error && <p className="px-2.5 pb-3 text-sm text-danger">{error}</p>}

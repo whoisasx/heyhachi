@@ -151,3 +151,8 @@ body {
 .prose-reply a {
   text-decoration: underline;
 }
+
+/* Google allows hiding the reCAPTCHA badge if the phone form shows its notice instead (see profile page). */
+.grecaptcha-badge {
+  visibility: hidden;
+}
