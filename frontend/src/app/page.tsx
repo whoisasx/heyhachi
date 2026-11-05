@@ -10,7 +10,7 @@ import { Paw } from "@/components/Logo";
 export default function Home() {
   return (
     <main className="grid min-h-full flex-1 lg:grid-cols-[1.15fr_1fr]">
-      <section className="hidden lg:block" aria-hidden>
+      <section className="hidden lg:block">
         <AgentDemo />
       </section>
       <Suspense>

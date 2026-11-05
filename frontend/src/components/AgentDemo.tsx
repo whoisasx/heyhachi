@@ -1,4 +1,7 @@
 import { Paw } from "./Logo";
+import { PixelField } from "./PixelField";
+
+const REPO = "https://github.com/whoisasx/heyhachi";
 
 /**
  * The sign-in page's left panel: a looping, CSS-only demo of the agent at work
@@ -7,9 +10,9 @@ import { Paw } from "./Logo";
 export function AgentDemo() {
   return (
     <div className="demo relative flex h-full flex-col justify-between overflow-hidden p-10 text-white lg:p-14">
-      {/* soft light blobs */}
-      <span className="demo-glow left-[-10%] top-[-10%] bg-[#3b6cff]" />
-      <span className="demo-glow bottom-[-15%] right-[-10%] bg-[#18a7a0] [animation-delay:-6s]" />
+      {/* dot grid + golden-hour cloud band with pixel edges, and a soft glow */}
+      <PixelField bandTop={0.3} bandBottom={0.72} />
+      <span className="demo-glow left-[-10%] top-[-10%] bg-[#3b6cff]" aria-hidden />
 
       <span className="display relative inline-flex items-center gap-2 text-lg tracking-tight text-white/90">
         <Paw size={18} className="text-[#7c9cff]" />
@@ -20,7 +23,7 @@ export function AgentDemo() {
       <div className="relative mx-auto w-full max-w-[34rem]">
         {/* what the user asked */}
         <div className="demo-ask mb-4 ml-auto w-fit max-w-[80%] rounded-2xl rounded-br-md bg-white px-4 py-2.5 text-sm text-[#16181d] shadow-lg">
-          Star browser-use/browser-use on GitHub
+          Star whoisasx/heyhachi on GitHub
         </div>
 
         {/* the browser it drives */}
@@ -30,22 +33,33 @@ export function AgentDemo() {
             <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
             <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
             <span className="ml-3 flex-1 truncate rounded-md bg-white/[0.06] px-3 py-1 font-mono text-[11px] text-white/60">
-              github.com/<span className="demo-url">browser-use/browser-use</span>
+              github.com/<span className="demo-url">whoisasx/heyhachi</span>
             </span>
           </div>
 
           <div className="relative space-y-4 p-5">
             <div className="flex items-center gap-3">
-              <span className="h-8 w-8 rounded-lg bg-gradient-to-br from-[#7c9cff] to-[#18a7a0]" />
+              <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-[#f6b961] to-[#c9792b] text-white">
+                <Paw size={16} />
+              </span>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-white/90">browser-use / browser-use</p>
-                <p className="text-[11px] text-white/45">Make websites accessible for AI agents</p>
+                <p className="text-sm font-semibold text-white/90">whoisasx / heyhachi</p>
+                <p className="text-[11px] text-white/45">Hachi, the loyal agent for any website</p>
               </div>
-              <span className="demo-star relative grid h-8 w-24 place-items-center rounded-lg border border-white/15 text-xs font-medium">
+              <a
+                href={REPO}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Star whoisasx/heyhachi on GitHub (opens in a new tab)"
+                className="demo-star group/star relative grid h-8 w-24 place-items-center rounded-lg border border-white/15 text-xs font-medium transition-colors hover:border-[#ffd166]/60 hover:bg-white/10"
+              >
                 <span className="demo-star-off absolute">☆ Star</span>
                 <span className="demo-star-on absolute text-[#ffd166]">★ Starred</span>
                 <span className="demo-ripple" />
-              </span>
+                <span className="pointer-events-none absolute -top-2 right-0 z-10 w-max -translate-y-full rounded-lg border border-white/10 bg-[#161c30] px-2.5 py-1.5 text-[11px] font-normal text-white/80 opacity-0 shadow-xl transition-opacity group-hover/star:opacity-100">
+                  Open on GitHub ↗<span className="block font-mono text-[10px] text-white/45">github.com/whoisasx/heyhachi</span>
+                </span>
+              </a>
             </div>
             <div className="space-y-2">
               <span className="block h-2 w-11/12 rounded bg-white/[0.07]" />
@@ -59,7 +73,7 @@ export function AgentDemo() {
             </div>
 
             {/* the agent's cursor */}
-            <svg className="demo-cursor absolute h-5 w-5 drop-shadow" viewBox="0 0 24 24" aria-hidden>
+            <svg className="demo-cursor pointer-events-none absolute h-5 w-5 drop-shadow" viewBox="0 0 24 24" aria-hidden>
               <path d="M4 3l14 7-6 2-2 6z" fill="#fff" stroke="#0f1424" strokeWidth="1.5" strokeLinejoin="round" />
             </svg>
           </div>
