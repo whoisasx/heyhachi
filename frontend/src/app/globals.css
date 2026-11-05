@@ -110,16 +110,19 @@ textarea:focus-visible {
 }
 
 body {
-  background: var(--background);
+  /* paper: a soft shadow at the edges */
+  background:
+    radial-gradient(130% 100% at 50% 0%, transparent 55%, color-mix(in srgb, var(--foreground) 6%, transparent)) fixed,
+    var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
   isolation: isolate;
 }
 
-/* The app's background (Settings → Background). Two fixed layers behind everything:
-   ::before a fine paper grain, ::after the light. "paper" (default): a soft shadow at
-   the edges. "hachi": a dawn sky at the top and low hills along the bottom, so Hachi
-   sits on its meadow (night sky in dark mode). */
+/* The app's background. Paper (default): the page colour with a soft shadow at the
+   edges (body above) and a fine grain (::before). The Hachi theme (the button next to
+   the logo, or Settings): ::after, a dawn sky and low hills along the bottom so Hachi
+   sits on its meadow (night sky in dark mode). It's always there and fades in and out. */
 body::before,
 body::after {
   content: "";
@@ -129,7 +132,8 @@ body::after {
   pointer-events: none;
 }
 body::before {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.6'/%3E%3C/svg%3E");
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.6'/%3E%3C/svg%3E");
   opacity: 0.07;
   mix-blend-mode: multiply;
 }
@@ -137,16 +141,24 @@ body::before {
   opacity: 0.045;
   mix-blend-mode: screen;
 }
+/* The Hachi scene fades in and out (the switch next to the logo). */
 body::after {
-  background: radial-gradient(130% 100% at 50% 0%, transparent 55%, color-mix(in srgb, var(--foreground) 6%, transparent));
+  opacity: 0;
+  transition: opacity 0.9s ease;
 }
 [data-backdrop="hachi"] body::after {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  body::after { transition: none; }
+}
+body::after {
   background:
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 160' preserveAspectRatio='none'%3E%3Cpath d='M0 95C220 45 420 60 640 82s440 40 800-12V160H0z' fill='%239cc48a' fill-opacity='.2'/%3E%3Cpath d='M0 128c260-34 520-12 760-16s460-22 680-2V160H0z' fill='%236f9e5b' fill-opacity='.2'/%3E%3C/svg%3E") bottom / 100% 150px no-repeat,
     radial-gradient(160px 160px at 82% 70px, #ffe7b066, transparent 70%),
     linear-gradient(180deg, #dcebf6 0%, #eef3ef 26%, transparent 55%);
 }
-[data-theme="dark"][data-backdrop="hachi"] body::after {
+[data-theme="dark"] body::after {
   background:
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 160' preserveAspectRatio='none'%3E%3Cpath d='M0 95C220 45 420 60 640 82s440 40 800-12V160H0z' fill='%235f8a4a' fill-opacity='.14'/%3E%3Cpath d='M0 128c260-34 520-12 760-16s460-22 680-2V160H0z' fill='%233f6631' fill-opacity='.2'/%3E%3C/svg%3E") bottom / 100% 150px no-repeat,
     radial-gradient(160px 160px at 82% 70px, #c9d6ff26, transparent 70%),

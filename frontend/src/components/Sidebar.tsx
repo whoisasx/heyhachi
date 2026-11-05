@@ -10,7 +10,7 @@ import { useConfirm } from "./Confirm";
 import { Paw, Wordmark } from "./Logo";
 import { Pet } from "./Pet";
 import { setRoam, useRoam } from "@/lib/pet";
-import { setTheme, useThemePref, type ThemePref } from "@/lib/theme";
+import { setBackdrop, setTheme, useBackdrop, useThemePref, type ThemePref } from "@/lib/theme";
 
 // ---- signed-in user, shared with pages ------------------------------------------
 
@@ -102,9 +102,12 @@ export function Shell({ email, name, children }: { email: string; name: string |
             if ((e.target as HTMLElement).closest("a")) setOpen(false); // close the phone menu after navigating
           }}
         >
-          <Link href="/chat" className="px-2 text-[1.3rem] leading-none">
-            <Wordmark />
-          </Link>
+          <div className="flex items-center justify-between gap-2 pr-1">
+            <Link href="/chat" className="px-2 text-[1.3rem] leading-none">
+              <Wordmark />
+            </Link>
+            <HachiThemeButton />
+          </div>
           <Link href="/chat" className="btn-primary" title="New chat (⌘⇧O)">
             + New chat
           </Link>
@@ -496,6 +499,28 @@ const THEMES: { pref: ThemePref; label: string; icon: string }[] = [
   { pref: "light", label: "Light", icon: "M12 4V2M12 22v-2M4 12H2M22 12h-2M6 6 4.6 4.6M19.4 19.4 18 18M6 18l-1.4 1.4M19.4 4.6 18 6M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" },
   { pref: "dark", label: "Dark", icon: "M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" },
 ];
+
+/** Next to the logo: turns the Hachi background (sky and meadow) on and off. Paper is the default. */
+function HachiThemeButton() {
+  const on = useBackdrop() === "hachi";
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      aria-label="Hachi theme"
+      title={on ? "Hachi theme on: back to paper" : "Hachi theme: sky and meadow"}
+      onClick={() => setBackdrop(on ? "paper" : "hachi")}
+      className={`grid h-8 w-8 place-items-center rounded-lg border transition-colors pointer-coarse:h-10 pointer-coarse:w-10 ${
+        on ? "border-accent/40 bg-accent-soft text-accent" : "border-transparent text-muted hover:bg-sunk hover:text-foreground"
+      }`}
+    >
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M2 18c3-3.5 6-4.5 10-3s7 .5 10-2M2 21.5c4-2 8-2.5 12-1.5s6 .5 8-.5" />
+        <circle cx="16" cy="7" r="2.6" fill={on ? "currentColor" : "none"} />
+      </svg>
+    </button>
+  );
+}
 
 /** Small sidebar button: system → light → dark. */
 function ThemeCycle() {
