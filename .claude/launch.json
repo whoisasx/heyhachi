@@ -11,6 +11,15 @@
       "port": 8000
     },
     {
+      "name": "backend-visible",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd backend && uv run uvicorn app.main:app --port 8000"
+      ],
+      "port": 8000
+    },
+    {
       "name": "frontend",
       "runtimeExecutable": "bash",
       "runtimeArgs": [
