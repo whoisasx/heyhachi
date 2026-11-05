@@ -602,7 +602,7 @@ function MessageRail({ items, scroller }: { items: { id: string; text: string }[
       const rect = box.getBoundingClientRect();
       // scrolled to the end: the last message in view counts, even if it can't reach the top
       const atEnd = box.scrollTop + box.clientHeight >= box.scrollHeight - 4;
-      const top = atEnd ? rect.bottom - 120 : rect.top + box.clientHeight / 3;
+      const top = atEnd ? rect.bottom - 120 : rect.top + 100;
       let at: string | null = items[0].id;
       for (const el of box.querySelectorAll<HTMLElement>("[data-msg]")) {
         if (el.getBoundingClientRect().top <= top) at = el.dataset.msg ?? at;
