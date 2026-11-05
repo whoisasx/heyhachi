@@ -175,7 +175,7 @@ export function ChatApp() {
               )}
             </p>
           )}
-          <div className="rounded-2xl border border-border bg-surface p-3 shadow-[0_6px_24px_rgba(0,0,0,0.05)] focus-within:border-foreground/40">
+          <div data-pet="composer" className="rounded-2xl border border-border bg-surface p-3 shadow-[0_6px_24px_rgba(0,0,0,0.05)] focus-within:border-foreground/40">
             <textarea
               ref={input}
               className="block max-h-40 min-h-11 w-full resize-none bg-transparent text-sm outline-none placeholder:text-muted"

@@ -7,7 +7,9 @@ import { Suspense, createContext, useCallback, useContext, useEffect, useRef, us
 import { signOutAction } from "@/app/actions";
 import { ApiError, api, loadChat } from "@/lib/api";
 import { useConfirm } from "./Confirm";
-import { Wordmark } from "./Logo";
+import { Paw, Wordmark } from "./Logo";
+import { Pet } from "./Pet";
+import { setRoam, useRoam } from "@/lib/pet";
 import { setTheme, useThemePref, type ThemePref } from "@/lib/theme";
 
 // ---- signed-in user, shared with pages ------------------------------------------
@@ -73,7 +75,9 @@ export function Shell({ email, name, children }: { email: string; name: string |
             </div>
           </div>
 
-          <nav className="flex flex-col gap-0.5">
+          <PetSwitch />
+
+          <nav className="-mt-3 flex flex-col gap-0.5">
             <p className="px-2 pb-1.5 text-[0.68rem] uppercase tracking-wider text-muted">Account</p>
             {NAV.map((n) => (
               <Link
@@ -112,6 +116,7 @@ export function Shell({ email, name, children }: { email: string; name: string |
           {children}
         </div>
       </div>
+      <Pet />
     </UserContext.Provider>
   );
 }
@@ -245,6 +250,7 @@ function ChatRow({
       {dialog}
       <Link
         href={`/chat?c=${chat.id}`}
+        data-pet={active ? "active-chat" : undefined}
         onMouseEnter={() => void loadChat(chat.id).catch(() => {})}
         className={`flex w-full items-center gap-2 rounded-lg py-1.5 pl-2.5 pr-2.5 text-left text-sm group-hover:pr-14 group-focus-within:pr-14 ${
           active ? "bg-sunk font-medium" : "text-foreground/80 hover:bg-sunk"
@@ -380,5 +386,25 @@ export function PageSection({
       </div>
       <div className="mt-3 border-t border-foreground">{children}</div>
     </section>
+  );
+}
+
+/** Turns Hachi's roaming on and off. */
+function PetSwitch() {
+  const roam = useRoam();
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={roam}
+      onClick={() => setRoam(!roam)}
+      className="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-foreground/80 hover:bg-sunk"
+    >
+      <Paw size={16} className="text-accent" />
+      <span className="flex-1 text-left">Let Hachi roam</span>
+      <span className={`relative h-4 w-7 shrink-0 rounded-full transition-colors ${roam ? "bg-accent" : "bg-border"}`}>
+        <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-all ${roam ? "left-3.5" : "left-0.5"}`} />
+      </span>
+    </button>
   );
 }
