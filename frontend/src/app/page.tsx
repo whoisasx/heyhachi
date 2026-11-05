@@ -6,10 +6,14 @@ import { auth, devLoginEnabled, signIn } from "@/auth";
 import { AgentDemo } from "@/components/AgentDemo";
 import { GoogleButton } from "@/components/GoogleButton";
 import { Paw } from "@/components/Logo";
+import { MEADOW } from "@/lib/meadow";
 
 export default function Home() {
   return (
-    <main className="grid min-h-full flex-1 lg:grid-cols-[1.15fr_1fr]">
+    <main className="relative isolate grid min-h-full flex-1 lg:grid-cols-[1.15fr_1fr]">
+      {/* a calm meadow (Angela Loria on Unsplash, Unsplash License) behind the whole page */}
+      {/* eslint-disable-next-line @next/next/no-img-element -- decorative photo straight from Unsplash's CDN */}
+      <img src={MEADOW} alt="" aria-hidden className="demo-scene pointer-events-none absolute inset-0 -z-10 h-full w-full object-cover" />
       <section className="hidden lg:block">
         <AgentDemo />
       </section>
@@ -29,7 +33,7 @@ async function SignInGate() {
   if (session?.user) redirect("/chat");
 
   return (
-    <section className="flex flex-col px-6 py-10 sm:px-12 lg:px-16">
+    <section className="flex flex-col bg-background/90 px-6 py-10 backdrop-blur-sm sm:px-12 lg:px-16">
       <div className="my-auto w-full max-w-md">
         <div className="flex items-center gap-3">
           <span className="grid h-14 w-14 place-items-center rounded-2xl bg-foreground text-background shadow-[0_12px_40px_rgba(47,91,234,0.25)]">
@@ -92,7 +96,8 @@ async function SignInGate() {
       </div>
 
       <p className="mt-10 text-xs text-muted">
-        Signing in only shares your name and email with us. Your Google password never reaches this app.
+        By continuing, you agree to our <strong className="font-semibold text-foreground">Terms</strong> and{" "}
+        <strong className="font-semibold text-foreground">Privacy Policy</strong>.
       </p>
     </section>
   );

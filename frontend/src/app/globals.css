@@ -182,7 +182,8 @@ body {
 }
 
 /* ---- Sign-in page demo (components/AgentDemo.tsx). One 10s loop, all parts in sync. ---- */
-.demo {
+/* shown while the meadow photo loads (it sits behind the whole sign-in page) */
+main:has(> .demo-scene) {
   background: linear-gradient(to bottom, #9cc3e6 0%, #c9dfe9 45%, #5f8a4a 70%, #2e4a24 100%);
 }
 /* slow, gentle zoom on the meadow photo */
@@ -264,7 +265,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .demo *, .demo { animation: none !important; }
+  .demo *, .demo, .demo-scene { animation: none !important; }
   .demo-cursor, .demo-star-off { opacity: 0; }
   .demo-star-on { opacity: 1; }
 }
@@ -329,3 +330,17 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .pet, .pet *, .pet-sparkle { animation: none !important; transition: none !important; }
 }
+
+/* Experimental meadow looks for the chat page (components/ChatScene.tsx) */
+.scene-horizon {
+  opacity: 0.85;
+  mask-image: linear-gradient(to top, #000 35%, transparent 100%);
+}
+[data-theme="dark"] .scene-horizon { opacity: 0.6; }
+.scene-glow {
+  background: radial-gradient(60% 100% at 50% 100%, rgba(110, 170, 90, 0.35), transparent 70%);
+}
+.scene-glass { opacity: 0.35; filter: blur(14px) saturate(1.2); scale: 1.15; }
+[data-theme="dark"] .scene-glass { opacity: 0.28; }
+.scene-ambient { opacity: 0.14; filter: blur(3px); }
+[data-theme="dark"] .scene-ambient { opacity: 0.1; }

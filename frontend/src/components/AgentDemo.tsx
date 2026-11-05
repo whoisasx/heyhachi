@@ -9,14 +9,7 @@ const REPO = "https://github.com/whoisasx/heyhachi";
 export function AgentDemo() {
   return (
     <div className="demo relative flex h-full flex-col justify-between overflow-hidden p-10 text-white lg:p-14">
-      {/* a calm meadow below the mountains (Angela Loria on Unsplash, Unsplash License) */}
-      {/* eslint-disable-next-line @next/next/no-img-element -- decorative photo straight from Unsplash's CDN */}
-      <img
-        src="https://images.unsplash.com/photo-1587990754909-18ae9d92c8e8?auto=format&fit=crop&w=1600&q=75"
-        alt=""
-        aria-hidden
-        className="demo-scene pointer-events-none absolute inset-0 h-full w-full object-cover"
-      />
+      {/* the meadow photo sits behind the whole page (app/page.tsx); this just shades it */}
       <span className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(8,20,30,0.45)_0%,rgba(8,20,30,0)_28%,rgba(8,20,30,0)_52%,rgba(6,16,12,0.82)_100%)]" aria-hidden />
       {[12, 28, 46, 63, 78, 90].map((left, i) => (
         <span key={left} className="demo-pollen" style={{ left: `${left}%`, animationDelay: `${-i * 2.3}s` }} aria-hidden />
