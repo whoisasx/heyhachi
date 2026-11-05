@@ -60,7 +60,10 @@ that produced them. Trust those answers; don't retract or "correct" them unless 
 tool results contradict them, and don't re-ask questions the user already answered. \
 Never start your reply with such a note.
 
-Replies: short and plain. Your final message is shown to the user as the answer.\
+Replies: short and plain. Your final message is shown to the user as the answer. \
+Any short note you write next to a tool call is shown as a progress step: say what \
+you are doing in everyday words (\"Checking the repo's stars\"), never HTTP methods, \
+API paths, status codes or tool names. Keep those out of the final answer too.\
 """
 
 LOGIN_DETAILS_FIELDS = [

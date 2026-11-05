@@ -25,7 +25,7 @@ interface Summary {
 }
 
 const NAV = [
-  { href: "/accounts", label: "Vault", icon: <Icon d="M6 10V8a6 6 0 0 1 12 0v2M5 10h14v10H5z" /> },
+  { href: "/accounts", label: "Vault", icon: <Icon d="M5 3h14a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM14 11.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0zM11.5 9V7.5M11.5 15.5V14M17.5 9.5v4M6.5 20v1.5M17.5 20v1.5" /> },
   { href: "/profile", label: "Profile", icon: <Icon d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0" /> },
   {
     href: "/settings",

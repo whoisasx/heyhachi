@@ -77,7 +77,8 @@ class ApiCaller:
                 "request_access (kind api_key), then retry.",
             }
 
-        await ctx.progress(f"Calling the {site} API: {method} {path}")
+        verb = "Looking things up" if method.upper() == "GET" else "Making the change"
+        await ctx.progress(f"{verb} on {site}")  # plain words; no HTTP details in the chat
         try:
             async with httpx.AsyncClient(transport=self.transport, timeout=90) as client:
                 resp = await client.request(

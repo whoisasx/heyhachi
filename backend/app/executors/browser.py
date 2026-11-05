@@ -274,7 +274,7 @@ class BrowserUseAgent:
         async def on_step(_state: Any, output: Any, step: int) -> None:
             goal = (getattr(output, "next_goal", None) or "").strip()
             if goal:
-                await ctx.progress(f"{site} · step {step}: {goal[:200]}")
+                await ctx.progress(goal[:200])
 
         try:
             opened = self.launcher.open(saved, site=site)

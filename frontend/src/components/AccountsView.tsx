@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { ApiError, api, post, type Field } from "@/lib/api";
 import { SecureForm } from "./cards";
+import { Select } from "./Select";
 import { PageSection } from "./Sidebar";
 
 interface Cred {
@@ -224,14 +225,15 @@ function AddAccess({ onChange, onError }: { onChange: () => void; onError: (e: s
     <PageSection title="Add access" note="Give the assistant a login, key or card ahead of time.">
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
         <input className="input" placeholder="Site, e.g. github.com" value={site} onChange={(e) => setSite(e.target.value)} />
-        <select className="input" value={kind} onChange={(e) => setKind(e.target.value)}>
-          <option value="login">Log in myself in a browser</option>
-          {KINDS.map((k) => (
-            <option key={k.kind} value={k.kind}>
-              {k.label}
-            </option>
-          ))}
-        </select>
+        <Select
+          label="What kind of access"
+          value={kind}
+          onChange={setKind}
+          options={[
+            { value: "login", label: "Log in myself in a browser", hint: "Sign in once; the session is saved" },
+            ...KINDS.map((k) => ({ value: k.kind, label: k.label })),
+          ]}
+        />
       </div>
 
       <div className="mt-3">

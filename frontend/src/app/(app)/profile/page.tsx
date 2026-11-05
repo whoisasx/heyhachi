@@ -3,6 +3,7 @@
 import type { ConfirmationResult } from "firebase/auth";
 import { useCallback, useEffect, useState } from "react";
 
+import { Select } from "@/components/Select";
 import { PageSection, useUser } from "@/components/Sidebar";
 import { ApiError, api, post } from "@/lib/api";
 import { confirmCode, firebaseMessage, phoneVerificationConfigured, sendCode } from "@/lib/firebase";
@@ -186,13 +187,13 @@ function PhoneRow() {
                 Mobile number
               </label>
               <div className="flex gap-2">
-                <select className="input w-28" value={country} onChange={(e) => setCountry(e.target.value)}>
-                  {COUNTRIES.map((c) => (
-                    <option key={c.code} value={c.code}>
-                      {c.label}
-                    </option>
-                  ))}
-                </select>
+                <Select
+                  label="Country code"
+                  className="w-32 shrink-0"
+                  value={country}
+                  onChange={setCountry}
+                  options={COUNTRIES.map((c) => ({ value: c.code, label: c.label }))}
+                />
                 <input
                   id="phone-number"
                   className="input"

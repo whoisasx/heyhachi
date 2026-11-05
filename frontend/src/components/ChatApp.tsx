@@ -97,6 +97,73 @@ export function ChatApp() {
   }
 
   const title = detail?.title;
+  // A brand-new chat: the input box sits in the middle of the page, like a home screen.
+  const empty = (!activeId || (detail !== null && !detail.messages.length)) && !pending;
+
+  const composer = (
+      <form onSubmit={send} className={empty ? "w-full" : "px-4 pb-5 pt-2 sm:px-6"}>
+        <div className={`mx-auto ${empty ? "max-w-2xl" : "max-w-3xl"}`}>
+          {error && (
+            <p className="mb-2 rounded-xl bg-red-50 px-3 py-2 text-sm text-danger dark:bg-red-950/50">
+              {error.text}
+              {!error.secret && (
+                <button
+                  type="button"
+                  className="ml-2 underline"
+                  onClick={() => {
+                    setError(null);
+                    refreshChats();
+                    if (activeId) void loadDetail(activeId).catch(() => {});
+                  }}
+                >
+                  Try again
+                </button>
+              )}
+              {error.secret && (
+                <>
+                  {" "}
+                  It wasn&apos;t sent or saved. Add it in the{" "}
+                  <Link href="/accounts" className="underline">
+                    Vault
+                  </Link>{" "}
+                  instead.
+                </>
+              )}
+            </p>
+          )}
+          <div className="rounded-2xl border border-border bg-surface p-3 shadow-[0_6px_24px_rgba(0,0,0,0.05)] focus-within:border-foreground/40">
+            <textarea
+              className="block max-h-40 min-h-11 w-full resize-none bg-transparent text-sm outline-none placeholder:text-muted"
+              rows={empty ? 3 : 2}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  send(e);
+                }
+              }}
+              placeholder={busy ? "Wait for the current task to finish…" : "Describe what you want done on a website…"}
+              disabled={sending || busy}
+              maxLength={4000}
+            />
+            <div className="mt-1 flex items-center gap-2">
+              <Guardrails />
+              <button
+                aria-label="Send"
+                className="ml-auto grid h-9 w-9 place-items-center rounded-full bg-foreground text-background transition hover:opacity-85 disabled:opacity-30"
+                disabled={sending || busy || !draft.trim()}
+              >
+                ↑
+              </button>
+            </div>
+          </div>
+          <p className="mt-2 text-center text-xs text-muted">
+            Never type passwords, codes or keys here. I&apos;ll ask for them with a secure form.
+          </p>
+        </div>
+      </form>
+  );
 
   return (
       <div className="flex min-h-0 flex-1">
@@ -121,13 +188,14 @@ export function ChatApp() {
                   <span className="ml-10 h-4 w-2/3 animate-pulse rounded bg-sunk" />
                 </div>
               )}
-              {(!activeId || (detail && !detail.messages.length)) && !pending && (
-                <div className="mt-[12vh] text-center">
+              {empty && (
+                <div className="mt-[14vh] flex flex-col items-center text-center">
                   <h1 className="display text-4xl">What should I do?</h1>
                   <p className="mt-3 text-sm text-muted">
                     I work in a real browser, and keep your logins, codes and keys out of the chat.
                   </p>
-                  <div className="mt-6 flex flex-wrap justify-center gap-2">
+                  <div className="mt-7 w-full text-left">{composer}</div>
+                  <div className="mt-5 flex flex-wrap justify-center gap-2">
                     {EXAMPLES.map((ex) => (
                       <button
                         key={ex}
@@ -167,71 +235,7 @@ export function ChatApp() {
             </div>
           </div>
 
-          <form onSubmit={send} className="px-4 pb-5 pt-2 sm:px-6">
-            <div className="mx-auto max-w-3xl">
-              {error && (
-                <p className="mb-2 rounded-xl bg-red-50 px-3 py-2 text-sm text-danger dark:bg-red-950/50">
-                  {error.text}
-                  {!error.secret && (
-                    <button
-                      type="button"
-                      className="ml-2 underline"
-                      onClick={() => {
-                        setError(null);
-                        refreshChats();
-                        if (activeId) void loadDetail(activeId).catch(() => {});
-                      }}
-                    >
-                      Try again
-                    </button>
-                  )}
-                  {error.secret && (
-                    <>
-                      {" "}
-                      It wasn&apos;t sent or saved. Add it in the{" "}
-                      <Link href="/accounts" className="underline">
-                        Vault
-                      </Link>{" "}
-                      instead.
-                    </>
-                  )}
-                </p>
-              )}
-              <div className="rounded-2xl border border-border bg-surface p-3 shadow-[0_6px_24px_rgba(0,0,0,0.05)] focus-within:border-foreground/40">
-                <textarea
-                  className="block max-h-40 min-h-11 w-full resize-none bg-transparent text-sm outline-none placeholder:text-muted"
-                  rows={2}
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      send(e);
-                    }
-                  }}
-                  placeholder={busy ? "Wait for the current task to finish…" : "Describe what you want done on a website…"}
-                  disabled={sending || busy}
-                  maxLength={4000}
-                />
-                <div className="mt-1 flex items-center gap-2">
-                  <span className="rounded-full border border-border px-2.5 py-0.5 text-xs text-muted">$1 limit per task</span>
-                  <span className="hidden rounded-full border border-border px-2.5 py-0.5 text-xs text-muted sm:inline">
-                    Asks before paying
-                  </span>
-                  <button
-                    aria-label="Send"
-                    className="ml-auto grid h-9 w-9 place-items-center rounded-full bg-foreground text-background transition hover:opacity-85 disabled:opacity-30"
-                    disabled={sending || busy || !draft.trim()}
-                  >
-                    ↑
-                  </button>
-                </div>
-              </div>
-              <p className="mt-2 text-center text-xs text-muted">
-                Never type passwords, codes or keys here. I&apos;ll ask for them with a secure form.
-              </p>
-            </div>
-          </form>
+          {!empty && composer}
         </main>
 
         {live && (
@@ -255,6 +259,30 @@ export function ChatApp() {
           </aside>
         )}
       </div>
+  );
+}
+
+/** What the assistant may do on its own: shown next to the send button. */
+function Guardrails() {
+  const items = [
+    { icon: "M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6", text: "Up to $1 per task", tip: "A task stops before it spends more than $1 on AI and browser time." },
+    { icon: "M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z M9 12l2 2 4-4", text: "Asks before paying", tip: "Paying, ordering, sending and deleting always wait for your OK." },
+  ];
+  return (
+    <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+      {items.map((it, i) => (
+        <span
+          key={it.text}
+          title={it.tip}
+          className={`items-center gap-1.5 rounded-full bg-sunk px-2.5 py-1 text-xs text-muted ${i ? "hidden sm:inline-flex" : "inline-flex"}`}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d={it.icon} />
+          </svg>
+          {it.text}
+        </span>
+      ))}
+    </span>
   );
 }
 

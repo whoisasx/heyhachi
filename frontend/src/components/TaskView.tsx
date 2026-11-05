@@ -20,6 +20,15 @@ interface TaskError {
   retryable: boolean;
 }
 
+// Older tasks stored technical step text; show it in plain words.
+function friendly(text: string): string {
+  const api = /^Calling the (\S+) API: (\w+) /.exec(text);
+  if (api) return `${api[2].toUpperCase() === "GET" ? "Looking things up" : "Making the change"} on ${api[1]}`;
+  return text.replace(/^\S+ · step \d+: /, "");
+}
+
+const SHOWN_STEPS = 4; // the rest sit behind "Show all"
+
 const STATUS_LABEL: Record<TaskStatus, string> = {
   queued: "Starting",
   running: "Working",
@@ -44,6 +53,7 @@ export function TaskView({
   const [events, setEvents] = useState<TaskEvent[]>([]);
   const [open, setOpen] = useState(!TERMINAL.includes(initialStatus));
   const [stream, setStream] = useState(0); // bumped to reconnect after a resume
+  const [allSteps, setAllSteps] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
   const retryInFlight = useRef(false);
@@ -81,7 +91,7 @@ export function TaskView({
         status = e.data.status as TaskStatus;
         if (!TERMINAL.includes(status)) error = null; // resumed
       }
-      else if (e.type === "progress") steps.push(String(e.data.text));
+      else if (e.type === "progress") steps.push(friendly(String(e.data.text)));
       else if (e.type === "card") cards.push({ seq: e.seq, card: e.data as unknown as Card });
       else if (e.type === "card_resolved") resolved.add(Number(e.data.card_seq));
       else if (e.type === "live_view") liveView = (e.data.url as string) ?? null;
@@ -154,13 +164,21 @@ export function TaskView({
 
         {open && view.steps.length > 0 && (
           <ol className="flex flex-col gap-1.5 border-t border-border px-4 py-3">
+            {view.steps.length > SHOWN_STEPS && !allSteps && (
+              <li>
+                <button className="text-xs text-muted underline-offset-2 hover:text-foreground hover:underline" onClick={() => setAllSteps(true)}>
+                  Show all {view.steps.length} steps
+                </button>
+              </li>
+            )}
             {view.steps.map((s, i) => {
+              if (!allSteps && i < view.steps.length - SHOWN_STEPS) return null;
               const last = i === view.steps.length - 1;
               const running = last && !done && view.status !== "waiting_user";
               return (
                 <li key={i} className={`flex gap-2.5 ${running ? "text-foreground" : "text-muted"}`}>
                   <StepIcon state={running ? "run" : "ok"} small />
-                  <span>{s}</span>
+                  <span className="line-clamp-2 min-w-0 break-words">{s}</span>
                 </li>
               );
             })}
