@@ -208,7 +208,7 @@ export function TaskView({
 }
 
 function StepIcon({ state, small }: { state: "ok" | "run" | "bad" | "wait"; small?: boolean }) {
-  const size = small ? "mt-0.5 h-4 w-4 text-[9px]" : "h-[18px] w-[18px] text-[10px]";
+  const size = small ? "mt-0.5 h-4 w-4 text-[9px]" : "h-[1.1rem] w-[1.1rem] text-[10px]";
   if (state === "wait")
     return <span className={`${size} grid shrink-0 place-items-center rounded-full bg-warn text-white`}>…</span>;
   if (state === "run")

@@ -40,7 +40,7 @@ export function CardView({ taskId, seq, card }: { taskId: string; seq: number; c
         </span>
         <div className="min-w-0 flex-1">
           <p className="font-medium">{card.title}</p>
-          {card.body && <p className="text-[13px] text-muted">{card.body}</p>}
+          {card.body && <p className="text-[0.8rem] text-muted">{card.body}</p>}
         </div>
         {card.site && (
           <a

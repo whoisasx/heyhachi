@@ -44,7 +44,7 @@ export function Shell({
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <Link href="/chat" className="serif px-2 text-[26px] leading-none">
+        <Link href="/chat" className="serif px-2 text-[1.6rem] leading-none">
           Browser Agent
         </Link>
 
@@ -66,7 +66,7 @@ export function Shell({
 
         {slot && (
           <div className="flex min-h-0 flex-1 flex-col">
-            <p className="px-2 pb-1.5 text-[11px] uppercase tracking-wider text-muted">Recent</p>
+            <p className="px-2 pb-1.5 text-[0.68rem] uppercase tracking-wider text-muted">Recent</p>
             <div className="min-h-0 flex-1 overflow-y-auto" onClick={() => setOpen(false)}>
               {slot}
             </div>
@@ -74,7 +74,7 @@ export function Shell({
         )}
 
         <nav className={`flex flex-col gap-0.5 ${slot ? "" : "flex-1"}`}>
-          <p className="px-2 pb-1.5 text-[11px] uppercase tracking-wider text-muted">Account</p>
+          <p className="px-2 pb-1.5 text-[0.68rem] uppercase tracking-wider text-muted">Account</p>
           {NAV.filter((n) => n.key !== "chat" || !slot).map((n) => (
             <Link
               key={n.key}
@@ -142,7 +142,7 @@ export function PageSection({
     <section>
       <div className="flex items-end justify-between gap-3">
         <div>
-          <h2 className="serif text-[30px] leading-tight">{title}</h2>
+          <h2 className="serif text-[1.85rem] leading-tight">{title}</h2>
           {note && <p className="mt-0.5 text-sm text-muted">{note}</p>}
         </div>
         {action}

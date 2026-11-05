@@ -53,6 +53,12 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* Everything is sized in rem, so this one value scales the whole UI.
+   16px felt compact, the mockup felt large; 17px sits between them. */
+html {
+  font-size: 17px;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
@@ -81,7 +87,7 @@ body {
   @apply font-serif font-normal tracking-tight;
 }
 @utility tag {
-  @apply rounded bg-sunk px-1.5 py-0.5 font-mono text-[11.5px];
+  @apply rounded bg-sunk px-1.5 py-0.5 font-mono text-[0.7rem];
 }
 
 /* Assistant replies rendered from Markdown */

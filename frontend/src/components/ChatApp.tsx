@@ -144,7 +144,7 @@ export function ChatApp({ initialId, email }: { initialId: string | null; email:
         <main className="flex min-w-0 flex-1 flex-col">
           {activeId && (
             <div className="flex items-center gap-3 border-b border-border px-6 py-3.5">
-              <h1 className="serif truncate text-[22px] leading-tight">{title ?? "New chat"}</h1>
+              <h1 className="serif truncate text-[1.35rem] leading-tight">{title ?? "New chat"}</h1>
               {busy && (
                 <span className="shrink-0 rounded-full bg-accent-soft px-2.5 py-0.5 text-xs text-accent">
                   ● Working
@@ -269,7 +269,7 @@ export function ChatApp({ initialId, email }: { initialId: string | null; email:
         </main>
 
         {live && (
-          <aside className="hidden w-[440px] shrink-0 flex-col border-l border-border bg-sunk xl:flex">
+          <aside className="hidden w-[27rem] shrink-0 flex-col border-l border-border bg-sunk xl:flex">
             <div className="flex items-center gap-2 border-b border-border px-4 py-3.5">
               <span className="h-2 w-2 animate-pulse rounded-full bg-accent" />
               <span className="text-sm font-medium">Live browser</span>
