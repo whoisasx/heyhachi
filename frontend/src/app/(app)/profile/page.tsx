@@ -3,6 +3,7 @@
 import type { ConfirmationResult } from "firebase/auth";
 import { useCallback, useEffect, useState } from "react";
 
+import { useConfirm } from "@/components/Confirm";
 import { Select } from "@/components/Select";
 import { PageSection, useUser } from "@/components/Sidebar";
 import { ApiError, api, post } from "@/lib/api";
@@ -15,11 +16,11 @@ export default function ProfilePage() {
     <main className="flex-1 overflow-y-auto">
       <div className="mx-auto flex max-w-3xl flex-col gap-12 px-4 py-10 sm:px-6">
         <PageSection title="Profile" note="How the assistant knows you.">
-          <Row icon={(name ?? email).charAt(0).toUpperCase()} title={name ?? "—"} sub="Name from your Google account" />
+          <Row icon={(name ?? email).charAt(0).toUpperCase()} title={name ?? email} sub={email} />
         </PageSection>
 
         <PageSection title="Sign-in" note="You sign in with Google. A verified phone number lets the assistant log in to sites for you and only ask for the code.">
-          <Row icon="G" title="Google" sub={email} badge={<Badge ok>Connected</Badge>} />
+          <Row icon="G" title="Google" sub="You sign in with your Google account" badge={<Badge ok>Connected</Badge>} />
           <PhoneRow />
         </PageSection>
       </div>
@@ -88,6 +89,7 @@ function PhoneRow() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resendIn, setResendIn] = useState(0);
+  const [dialog, confirm] = useConfirm();
 
   const load = useCallback(() => api<PhoneState>("/me/phone").then(setState, () => setError("Couldn't load your number.")), []);
   useEffect(() => {
@@ -137,7 +139,11 @@ function PhoneRow() {
   }
 
   async function remove() {
-    if (!window.confirm("Remove your phone number? The assistant will ask for it again when a site needs it.")) return;
+    const ok = await confirm({
+      title: "Remove your phone number?",
+      body: "The assistant will ask for it again when a site needs it.",
+    });
+    if (!ok) return;
     setBusy(true);
     try {
       await api("/me/phone", { method: "DELETE" });
@@ -150,6 +156,7 @@ function PhoneRow() {
   const phone = state?.phone;
   return (
     <div className="border-b border-border">
+      {dialog}
       <Row
         icon="📱"
         title="Phone"
@@ -183,7 +190,7 @@ function PhoneRow() {
                 void send();
               }}
             >
-              <label className="text-xs text-muted" htmlFor="phone-number">
+              <label className="block text-xs text-muted" htmlFor="phone-number">
                 Mobile number
               </label>
               <div className="flex gap-2">
@@ -221,7 +228,7 @@ function PhoneRow() {
                 void verify();
               }}
             >
-              <label className="text-xs text-muted" htmlFor="phone-code">
+              <label className="block text-xs text-muted" htmlFor="phone-code">
                 Enter the 6-digit code sent to {country} {number}
               </label>
               <input
@@ -231,7 +238,7 @@ function PhoneRow() {
                 autoComplete="one-time-code"
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                placeholder="123456"
+                placeholder="······"
                 autoFocus
               />
               <div className="flex flex-wrap gap-2">
