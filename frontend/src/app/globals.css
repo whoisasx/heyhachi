@@ -148,9 +148,6 @@ body {
   padding: 0.25rem 0.5rem;
   text-align: left;
 }
-.prose-reply a {
-  text-decoration: underline;
-}
 
 /* Google allows hiding the reCAPTCHA badge if the phone form shows its notice instead (see profile page). */
 .grecaptcha-badge {
@@ -300,3 +297,11 @@ main:has(> .page-meadow) {
 /* Faint meadow inside the chat box (components/ChatScene.tsx) */
 .chat-meadow-box { opacity: 0.12; filter: blur(10px) saturate(1.1); scale: 1.15; }
 [data-theme="dark"] .chat-meadow-box { opacity: 0.09; }
+.prose-reply .reply-link {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+}
+.prose-reply .reply-link:hover { text-decoration-color: currentColor; }

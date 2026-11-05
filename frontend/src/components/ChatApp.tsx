@@ -9,6 +9,7 @@ import remarkGfm from "remark-gfm";
 import { ApiError, cachedChat, loadChat, post, type ConversationDetail, type TaskStatus } from "@/lib/api";
 import { CHAT_RENAMED, refreshChats, useUser } from "./Sidebar";
 import { BoxMeadow } from "./ChatScene";
+import { LivePanel } from "./LivePanel";
 import { Paw } from "./Logo";
 import { TaskView } from "./TaskView";
 
@@ -306,26 +307,7 @@ export function ChatApp() {
           {!empty && composer}
         </main>
 
-        {live && (
-          <aside className="hidden w-[27rem] shrink-0 flex-col border-l border-border bg-sunk xl:flex">
-            <div className="flex items-center gap-2 border-b border-border px-4 py-3.5">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-accent" />
-              <span className="text-sm font-medium">Live browser</span>
-              <a href={live.url} target="_blank" rel="noopener noreferrer" className="ml-auto text-xs text-muted hover:text-foreground">
-                Open in new tab ↗
-              </a>
-            </div>
-            <div className="p-4">
-              <iframe
-                src={live.url}
-                title="Live browser"
-                className="aspect-[4/3] w-full rounded-xl border border-border bg-surface"
-                sandbox="allow-scripts allow-same-origin allow-forms"
-              />
-              <p className="mt-3 text-xs text-muted">You can click and type in this browser to help.</p>
-            </div>
-          </aside>
-        )}
+        {live && <LivePanel url={live.url} />}
       </div>
   );
 }
@@ -382,11 +364,7 @@ function Bubble({ role, text, at, onEdit }: { role: string; text: string; at: st
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             components={{
-              a: ({ href, children }) => (
-                <a href={href} target="_blank" rel="noopener noreferrer nofollow">
-                  {children}
-                </a>
-              ),
+              a: ({ href, children }) => <ReplyLink href={href}>{children}</ReplyLink>,
             }}
           >
             {text}
@@ -397,6 +375,52 @@ function Bubble({ role, text, at, onEdit }: { role: string; text: string; at: st
         </div>
       </div>
     </div>
+  );
+}
+
+/** "storage.googleapis.com" from a URL, or null if it isn't one. */
+function hostOf(href?: string) {
+  try {
+    return new URL(href ?? "").hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Links in replies. A bare URL becomes a small card (site name + "Open"), so long
+ * signed links never spill across the page; a labelled link stays inline.
+ */
+function ReplyLink({ href, children }: { href?: string; children: React.ReactNode }) {
+  const host = hostOf(href);
+  const text = typeof children === "string" ? children : Array.isArray(children) ? children.join("") : "";
+  const bare = !!host && (text === href || /^https?:\/\//.test(text));
+  if (!host) return <span>{children}</span>;
+  if (!bare)
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer nofollow" title={href} className="reply-link">
+        {children}
+        <span aria-hidden> ↗</span>
+      </a>
+    );
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer nofollow"
+      title={href}
+      className="my-0.5 inline-flex max-w-full items-center gap-2.5 rounded-xl border border-border bg-surface px-3 py-2 align-middle no-underline transition-colors hover:border-accent/50 hover:bg-sunk"
+    >
+      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1" />
+        </svg>
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate text-sm font-medium text-foreground">{host}</span>
+        <span className="block text-xs text-muted">Open link ↗</span>
+      </span>
+    </a>
   );
 }
 
