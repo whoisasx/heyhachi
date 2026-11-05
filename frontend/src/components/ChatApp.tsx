@@ -22,10 +22,10 @@ export function ChatApp() {
   const [loaded, setLoaded] = useState<ConversationDetail | null>(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
-  const [pending, setPending] = useState<string | null>(null); // shown right away while sending
   const [error, setError] = useState<{ text: string; secret?: boolean } | null>(null);
   const [liveView, setLiveView] = useState<{ taskId: string; url: string } | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
+  const input = useRef<HTMLTextAreaElement>(null);
 
   // Only show what belongs to the open chat (the previous one may still be in state).
   // A chat seen before shows straight from the cache while the fresh copy loads.
@@ -70,8 +70,6 @@ export function ChatApp() {
     if (!content || sending) return;
     setSending(true);
     setError(null);
-    setPending(content);
-    setDraft("");
     try {
       let id = activeId;
       if (!id) {
@@ -83,23 +81,35 @@ export function ChatApp() {
         client_message_id: crypto.randomUUID(),
       });
       await loadDetail(id);
+      setDraft(""); // only now: the message shows in the chat and leaves the box
       refreshChats();
-    } catch (err) {
-      setDraft(content); // give the text back so nothing is lost
-      if (err instanceof ApiError && err.code === "secret_in_message") {
+    } catch (err) {      if (err instanceof ApiError && err.code === "secret_in_message") {
         setError({ text: err.message, secret: true });
       } else {
         setError({ text: err instanceof Error ? err.message : "Couldn't send." });
       }
     } finally {
-      setPending(null);
       setSending(false);
     }
   }
 
   const title = detail?.title;
   // A brand-new chat: the input box sits in the middle of the page, like a home screen.
-  const empty = (!activeId || (detail !== null && !detail.messages.length)) && !pending;
+  // While the first message of a new chat is sending, stay on that screen.
+  const firstSend = sending && !detail?.messages.length;
+  const empty = firstSend || ((!activeId || (detail !== null && !detail.messages.length)) && !sending);
+  // Show "Working…" under the chat while a task runs and isn't waiting on the user.
+  const working = busy && !detail?.tasks.some((t) => t.status === "waiting_user");
+
+  function editMessage(text: string) {
+    setDraft(text);
+    requestAnimationFrame(() => {
+      const el = input.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(text.length, text.length);
+    });
+  }
 
   const composer = (
       <form onSubmit={send} className={empty ? "w-full" : "px-4 pb-5 pt-2 sm:px-6"}>
@@ -134,6 +144,7 @@ export function ChatApp() {
           )}
           <div className="rounded-2xl border border-border bg-surface p-3 shadow-[0_6px_24px_rgba(0,0,0,0.05)] focus-within:border-foreground/40">
             <textarea
+              ref={input}
               className="block max-h-40 min-h-11 w-full resize-none bg-transparent text-sm outline-none placeholder:text-muted"
               rows={empty ? 3 : 2}
               value={draft}
@@ -145,17 +156,24 @@ export function ChatApp() {
                 }
               }}
               placeholder={busy ? "Wait for the current task to finish…" : "Describe what you want done on a website…"}
-              disabled={sending || busy}
+              readOnly={sending}
+              disabled={busy}
               maxLength={4000}
             />
             <div className="mt-1 flex items-center gap-2">
               <Guardrails />
               <button
-                aria-label="Send"
-                className="ml-auto grid h-9 w-9 place-items-center rounded-full bg-foreground text-background transition hover:opacity-85 disabled:opacity-30"
+                aria-label={sending ? "Sending" : "Send"}
+                className={`ml-auto grid h-9 w-9 place-items-center rounded-full bg-foreground text-background transition hover:opacity-85 ${
+                  sending ? "" : "disabled:opacity-30"
+                }`}
                 disabled={sending || busy || !draft.trim()}
               >
-                ↑
+                {sending ? (
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
+                ) : (
+                  "↑"
+                )}
               </button>
             </div>
           </div>
@@ -182,7 +200,7 @@ export function ChatApp() {
 
           <div className="flex-1 overflow-y-auto">
             <div className="mx-auto flex max-w-3xl flex-col gap-5 px-4 py-7 sm:px-6">
-              {activeId && !detail && !pending && (
+              {activeId && !detail && !sending && (
                 <div className="flex flex-col gap-4 pt-2">
                   <span className="h-10 w-1/2 self-end animate-pulse rounded-2xl bg-sunk" />
                   <span className="ml-10 h-12 animate-pulse rounded-2xl bg-sunk" />
@@ -211,7 +229,12 @@ export function ChatApp() {
               )}
               {detail?.messages.map((m) => (
                 <div key={m.id} className="flex flex-col gap-3">
-                  <Bubble role={m.role} text={m.content} />
+                  <Bubble
+                    role={m.role}
+                    text={m.content}
+                    at={m.created_at}
+                    onEdit={m.role === "user" && !busy ? () => editMessage(m.content) : undefined}
+                  />
                   {m.role === "user" && m.task_id && (
                     <TaskView
                       key={m.task_id}
@@ -226,12 +249,7 @@ export function ChatApp() {
                   )}
                 </div>
               ))}
-              {pending && (
-                <div className="flex flex-col gap-3">
-                  <Bubble role="user" text={pending} pending />
-                  <p className="ml-10 text-sm text-muted">Sending…</p>
-                </div>
-              )}
+              {working && <Working />}
               <div ref={bottom} />
             </div>
           </div>
@@ -287,36 +305,107 @@ function Guardrails() {
   );
 }
 
-function Bubble({ role, text, pending }: { role: string; text: string; pending?: boolean }) {
+const timeOf = (iso: string) => {
+  const d = new Date(iso);
+  const sameDay = d.toDateString() === new Date().toDateString();
+  return d.toLocaleString(undefined, {
+    ...(sameDay ? {} : { day: "numeric", month: "short" }),
+    hour: "numeric",
+    minute: "2-digit",
+  });
+};
+
+function Bubble({ role, text, at, onEdit }: { role: string; text: string; at: string; onEdit?: () => void }) {
   if (role === "user")
     return (
-      <div className="flex justify-end">
-        <div
-          className={`max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-foreground px-4 py-2.5 text-sm leading-relaxed text-background ${
-            pending ? "opacity-60" : ""
-          }`}
-        >
+      <div className="group flex flex-col items-end gap-1">
+        <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-foreground px-4 py-2.5 text-sm leading-relaxed text-background">
           {text}
         </div>
+        <MessageActions text={text} at={at} onEdit={onEdit} hover />
       </div>
     );
   return (
-    <div className="flex gap-3">
+    <div className="group flex gap-3">
       <BotMark />
-      <div className="prose-reply min-w-0 flex-1 pt-0.5 text-sm leading-relaxed">
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          components={{
-            a: ({ href, children }) => (
-              <a href={href} target="_blank" rel="noopener noreferrer nofollow">
-                {children}
-              </a>
-            ),
-          }}
-        >
-          {text}
-        </ReactMarkdown>
+      <div className="min-w-0 flex-1">
+        <div className="prose-reply pt-0.5 text-sm leading-relaxed">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              a: ({ href, children }) => (
+                <a href={href} target="_blank" rel="noopener noreferrer nofollow">
+                  {children}
+                </a>
+              ),
+            }}
+          >
+            {text}
+          </ReactMarkdown>
+        </div>
+        <div className="mt-1.5">
+          <MessageActions text={text} at={at} />
+        </div>
       </div>
+    </div>
+  );
+}
+
+/** Time, copy and (for your own messages) edit. Your messages show them on hover. */
+function MessageActions({ text, at, onEdit, hover }: { text: string; at: string; onEdit?: () => void; hover?: boolean }) {
+  const [copied, setCopied] = useState(false);
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard blocked: nothing to do */
+    }
+  }
+  return (
+    <div
+      className={`flex items-center gap-0.5 text-xs text-muted transition-opacity ${
+        hover ? "opacity-0 focus-within:opacity-100 group-hover:opacity-100" : ""
+      }`}
+    >
+      <time dateTime={at} title={new Date(at).toLocaleString()} className="mr-1">
+        {timeOf(at)}
+      </time>
+      <IconButton label={copied ? "Copied" : "Copy"} onClick={copy}>
+        {copied ? <path d="M5 12l5 5L20 7" /> : <path d="M9 9h10v12H9zM5 15V3h10" />}
+      </IconButton>
+      {onEdit && (
+        <IconButton label="Edit" onClick={onEdit}>
+          <path d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4" />
+        </IconButton>
+      )}
+    </div>
+  );
+}
+
+function IconButton({ label, onClick, children }: { label: string; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      className="grid h-6 w-6 place-items-center rounded-md hover:bg-sunk hover:text-foreground"
+    >
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        {children}
+      </svg>
+    </button>
+  );
+}
+
+/** The "it's thinking" line, like other chat apps. */
+function Working() {
+  return (
+    <div className="flex items-center gap-3" aria-live="polite">
+      <BotMark />
+      <span className="shimmer text-sm">Working…</span>
     </div>
   );
 }
