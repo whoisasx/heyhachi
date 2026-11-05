@@ -63,6 +63,29 @@ export async function api<T = unknown>(path: string, init: RequestInit = {}): Pr
 export const post = <T,>(path: string, body: unknown) =>
   api<T>(path, { method: "POST", body: JSON.stringify(body) });
 
+// ---- chat cache ----------------------------------------------------------------
+
+// Chats seen this session show instantly while a fresh copy loads in the background.
+const chatCache = new Map<string, ConversationDetail>();
+const chatInflight = new Map<string, Promise<ConversationDetail>>();
+
+export const cachedChat = (id: string) => chatCache.get(id) ?? null;
+
+/** Loads a chat (shared by the chat page and the sidebar's hover prefetch). */
+export function loadChat(id: string): Promise<ConversationDetail> {
+  let p = chatInflight.get(id);
+  if (!p) {
+    p = api<ConversationDetail>(`/conversations/${id}`)
+      .then((d) => {
+        chatCache.set(id, d);
+        return d;
+      })
+      .finally(() => chatInflight.delete(id));
+    chatInflight.set(id, p);
+  }
+  return p;
+}
+
 // ---- types ---------------------------------------------------------------------
 
 export type TaskStatus =

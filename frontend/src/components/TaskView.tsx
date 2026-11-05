@@ -63,21 +63,27 @@ export function TaskView({
     finished.current = onFinished;
   });
 
+  // A task that was already finished when the chat opened replays its history. That
+  // replay passes through "running" and the live-view link, which must not show
+  // (it made the live panel blink in and out) or count as the task finishing now.
+  const [finishedOnOpen, setFinishedOnOpen] = useState(() => TERMINAL.includes(initialStatus));
+
   useEffect(() => {
     let sawLive = false;
     const resumed = lastSeq.current > 0; // reconnecting after Resume: the end must refresh the chat
+    const history = finishedOnOpen;
     const stop = streamTask(taskId, lastSeq.current, (event) => {
       lastSeq.current = Math.max(lastSeq.current, event.seq);
       // Ignore duplicates (reconnects can overlap).
       setEvents((prev) => (prev.some((e) => e.seq === event.seq) ? prev : [...prev, event]));
       if (event.type === "status") {
         const status = event.data.status as TaskStatus;
-        if (!TERMINAL.includes(status)) sawLive = true;
+        if (!TERMINAL.includes(status)) sawLive = !history;
         else if (sawLive || resumed) finished.current(); // it finished while we watched
       }
     });
     return stop;
-  }, [taskId, stream]);
+  }, [taskId, stream, finishedOnOpen]);
 
   const view = useMemo(() => {
     let status: TaskStatus = initialStatus;
@@ -88,13 +94,14 @@ export function TaskView({
     const cards: { seq: number; card: Card }[] = [];
     for (const e of events) {
       if (e.type === "status") {
+        if (finishedOnOpen) continue; // keep showing the final status during the replay
         status = e.data.status as TaskStatus;
         if (!TERMINAL.includes(status)) error = null; // resumed
       }
       else if (e.type === "progress") steps.push(friendly(String(e.data.text)));
       else if (e.type === "card") cards.push({ seq: e.seq, card: e.data as unknown as Card });
       else if (e.type === "card_resolved") resolved.add(Number(e.data.card_seq));
-      else if (e.type === "live_view") liveView = (e.data.url as string) ?? null;
+      else if (e.type === "live_view") liveView = finishedOnOpen ? null : ((e.data.url as string) ?? null);
       else if (e.type === "error")
         error = {
           code: String(e.data.code ?? "internal_error"),
@@ -105,7 +112,7 @@ export function TaskView({
     const pending = [...cards].reverse().find((c) => !resolved.has(c.seq));
     const activeCard = status === "waiting_user" ? pending : undefined;
     return { status, steps, activeCard, liveView, error };
-  }, [events, initialStatus]);
+  }, [events, initialStatus, finishedOnOpen]);
 
   const done = TERMINAL.includes(view.status);
   const liveUrl = view.liveView && !done ? view.liveView : null;
@@ -125,6 +132,7 @@ export function TaskView({
     try {
       await post(`/tasks/${taskId}/retry`, { mode });
       if (mode === "resume") {
+        setFinishedOnOpen(false); // live again: show its status and live view
         setOpen(true);
         setStream((n) => n + 1); // same task: listen again from the last event
         finished.current(); // refresh the chat so it knows a task is running again

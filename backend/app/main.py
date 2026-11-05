@@ -1,4 +1,5 @@
 import logging
+import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -8,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.browser_sessions import SessionStore
 from app.config import Settings, get_settings
 from app.crypto import Vault, load_master_key
-from app.db import make_engine, make_session_factory
+from app.db import db_time, make_engine, make_session_factory
 from app.errors import install_error_handlers
 from app.events import EventStore
 from app.executors.fake import FakeExecutor
@@ -32,6 +33,37 @@ def build_executor(settings: Settings) -> Executor:
 
         return Orchestrator(ClaudeLLM(settings), build_browser(settings), settings)
     raise ValueError(f"unknown executor: {settings.executor}")
+
+
+class ServerTiming:
+    """Adds a Server-Timing header (time in the app and in SQL) to every response."""
+
+    def __init__(self, app, allow_origin: str) -> None:
+        self.app = app
+        self.allow_origin = allow_origin.encode()
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+        acc = [0.0, 0]
+        token = db_time.set(acc)
+        started = time.perf_counter()
+
+        async def send_with_timing(message):
+            if message["type"] == "http.response.start":
+                app_ms = (time.perf_counter() - started) * 1000
+                value = f'app;dur={app_ms:.1f}, db;dur={acc[0] * 1000:.1f};desc="{acc[1]} queries"'
+                message["headers"] = [
+                    *message.get("headers", []),
+                    (b"server-timing", value.encode()),
+                    (b"timing-allow-origin", self.allow_origin),
+                ]
+            await send(message)
+
+        try:
+            await self.app(scope, receive, send_with_timing)
+        finally:
+            db_time.reset(token)
 
 
 def create_app(settings: Settings | None = None, executor: Executor | None = None) -> FastAPI:
@@ -74,7 +106,10 @@ def create_app(settings: Settings | None = None, executor: Executor | None = Non
         allow_origins=[settings.frontend_url],
         allow_methods=["GET", "POST", "DELETE"],
         allow_headers=["Authorization", "Content-Type", "Last-Event-ID"],
+        expose_headers=["Server-Timing"],
+        max_age=3600,  # fewer preflight requests
     )
+    app.add_middleware(ServerTiming, allow_origin=settings.frontend_url)
     install_error_handlers(app)
     for module in (users, conversations, tasks, vault_routes):
         app.include_router(module.router, prefix="/v1")

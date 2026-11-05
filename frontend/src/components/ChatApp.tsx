@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-import { ApiError, api, post, type ConversationDetail, type TaskStatus } from "@/lib/api";
+import { ApiError, cachedChat, loadChat, post, type ConversationDetail, type TaskStatus } from "@/lib/api";
 import { refreshChats } from "./Sidebar";
 import { TaskView } from "./TaskView";
 
@@ -28,12 +28,13 @@ export function ChatApp() {
   const bottom = useRef<HTMLDivElement>(null);
 
   // Only show what belongs to the open chat (the previous one may still be in state).
-  const detail = loaded?.id === activeId ? loaded : null;
+  // A chat seen before shows straight from the cache while the fresh copy loads.
+  const detail = loaded?.id === activeId ? loaded : activeId ? cachedChat(activeId) : null;
   const live = liveView && detail?.tasks.some((t) => t.id === liveView.taskId) ? liveView : null;
 
   const loadDetail = useCallback(
-    (id: string) => api<ConversationDetail>(`/conversations/${id}`).then(setLoaded),
-    [],
+    (id: string) => loadChat(id).then(setLoaded),
+    [setLoaded],
   );
 
   useEffect(() => {
@@ -61,7 +62,7 @@ export function ChatApp() {
 
   const onLiveView = useCallback((taskId: string, url: string | null) => {
     setLiveView((cur) => (url ? { taskId, url } : cur?.taskId === taskId ? null : cur));
-  }, []);
+  }, [setLiveView]);
 
   async function send(e: { preventDefault(): void }) {
     e.preventDefault();

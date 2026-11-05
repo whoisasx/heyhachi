@@ -5,7 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 
 import { signOutAction } from "@/app/actions";
-import { api } from "@/lib/api";
+import { api, loadChat } from "@/lib/api";
 import { setTheme, useThemePref, type ThemePref } from "@/lib/theme";
 
 // ---- signed-in user, shared with pages ------------------------------------------
@@ -147,6 +147,7 @@ function ChatList({ onChat }: { onChat: boolean }) {
         <li key={c.id}>
           <Link
             href={`/chat?c=${c.id}`}
+            onMouseEnter={() => void loadChat(c.id).catch(() => {})}
             className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm ${
               onChat && c.id === activeId ? "bg-sunk font-medium" : "text-foreground/80 hover:bg-sunk"
             }`}
