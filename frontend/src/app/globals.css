@@ -82,12 +82,6 @@ html {
 html[data-theme="dark"] {
   color-scheme: dark;
 }
-/* Big screens get a step up, so the app doesn't look tiny on a wide monitor. */
-@media (min-width: 1600px) {
-  html {
-    font-size: 18px;
-  }
-}
 
 body {
   background: var(--background);
