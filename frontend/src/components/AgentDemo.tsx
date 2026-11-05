@@ -1,5 +1,4 @@
 import { Paw } from "./Logo";
-import { PixelField } from "./PixelField";
 
 const REPO = "https://github.com/whoisasx/heyhachi";
 
@@ -10,20 +9,40 @@ const REPO = "https://github.com/whoisasx/heyhachi";
 export function AgentDemo() {
   return (
     <div className="demo relative flex h-full flex-col justify-between overflow-hidden p-10 text-white lg:p-14">
-      {/* dot grid + golden-hour cloud band with pixel edges, and a soft glow */}
-      <PixelField bandTop={0.3} bandBottom={0.72} />
-      <span className="demo-glow left-[-10%] top-[-10%] bg-[#3b6cff]" aria-hidden />
+      {/* a calm meadow below the mountains (Angela Loria on Unsplash, Unsplash License) */}
+      {/* eslint-disable-next-line @next/next/no-img-element -- decorative photo straight from Unsplash's CDN */}
+      <img
+        src="https://images.unsplash.com/photo-1587990754909-18ae9d92c8e8?auto=format&fit=crop&w=1600&q=75"
+        alt=""
+        aria-hidden
+        className="demo-scene pointer-events-none absolute inset-0 h-full w-full object-cover"
+      />
+      <span className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(8,20,30,0.45)_0%,rgba(8,20,30,0)_28%,rgba(8,20,30,0)_52%,rgba(6,16,12,0.82)_100%)]" aria-hidden />
+      {[12, 28, 46, 63, 78, 90].map((left, i) => (
+        <span key={left} className="demo-pollen" style={{ left: `${left}%`, animationDelay: `${-i * 2.3}s` }} aria-hidden />
+      ))}
 
       <span className="display relative inline-flex items-center gap-2 text-lg tracking-tight text-white/90">
-        <Paw size={18} className="text-[#7c9cff]" />
+        <Paw size={18} className="text-[#ffd98a]" />
         Hachi
         <span className="font-sans text-sm font-normal text-white/50">· the loyal agent</span>
       </span>
 
       <div className="relative mx-auto w-full max-w-[34rem]">
         {/* what the user asked */}
-        <div className="demo-ask mb-4 ml-auto w-fit max-w-[80%] rounded-2xl rounded-br-md bg-white px-4 py-2.5 text-sm text-[#16181d] shadow-lg">
-          Star whoisasx/heyhachi on GitHub
+        <div className="demo-ask mb-4 ml-auto flex w-fit max-w-[85%] items-center gap-2 rounded-2xl rounded-br-md bg-white py-2 pl-3 pr-2 text-sm text-[#16181d] shadow-[0_10px_30px_rgba(0,0,0,0.25)]">
+          <GitHubMark />
+          Star
+          <a
+            href={REPO}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 rounded-lg bg-[#f1f3f7] px-2 py-1 font-mono text-[12.5px] font-medium text-[#1f3fbf] transition-colors hover:bg-[#e3e8f8]"
+          >
+            whoisasx/heyhachi
+            <Arrow />
+          </a>
+          on GitHub
         </div>
 
         {/* the browser it drives */}
@@ -50,15 +69,17 @@ export function AgentDemo() {
                 href={REPO}
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="Star whoisasx/heyhachi on GitHub (opens in a new tab)"
-                className="demo-star group/star relative grid h-8 w-24 place-items-center rounded-lg border border-white/15 text-xs font-medium transition-colors hover:border-[#ffd166]/60 hover:bg-white/10"
+                aria-label="Open whoisasx/heyhachi on GitHub (new tab)"
+                className="demo-star group/star relative flex h-8 items-center gap-2 rounded-lg border border-white/15 pl-3 pr-2 text-xs font-medium transition-colors hover:border-white/40 hover:bg-white/10"
               >
-                <span className="demo-star-off absolute">☆ Star</span>
-                <span className="demo-star-on absolute text-[#ffd166]">★ Starred</span>
-                <span className="demo-ripple" />
-                <span className="pointer-events-none absolute -top-2 right-0 z-10 w-max -translate-y-full rounded-lg border border-white/10 bg-[#161c30] px-2.5 py-1.5 text-[11px] font-normal text-white/80 opacity-0 shadow-xl transition-opacity group-hover/star:opacity-100">
-                  Open on GitHub ↗<span className="block font-mono text-[10px] text-white/45">github.com/whoisasx/heyhachi</span>
+                <span className="relative grid w-[4.4rem] place-items-center">
+                  <span className="demo-star-off col-start-1 row-start-1">☆ Star</span>
+                  <span className="demo-star-on col-start-1 row-start-1 text-[#ffd166]">★ Starred</span>
                 </span>
+                <span className="grid h-5 w-5 place-items-center rounded-md bg-white/10 text-white/70 transition-colors group-hover/star:bg-white group-hover/star:text-[#0f1424]">
+                  <Arrow />
+                </span>
+                <span className="demo-ripple" />
               </a>
             </div>
             <div className="space-y-2">
@@ -108,5 +129,21 @@ export function AgentDemo() {
         </p>
       </div>
     </div>
+  );
+}
+
+function Arrow() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M7 17L17 7M8 7h9v9" />
+    </svg>
+  );
+}
+
+function GitHubMark() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.25.73-1.54-2.56-.29-5.25-1.28-5.25-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.7 5.38-5.27 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z" />
+    </svg>
   );
 }
