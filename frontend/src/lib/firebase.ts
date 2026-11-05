@@ -81,5 +81,6 @@ const MESSAGES: Record<string, string> = {
 
 export function firebaseMessage(err: unknown): string {
   const code = (err as { code?: string })?.code;
+  console.warn("[phone] verification error", code, err); // code only; never the number
   return (code && MESSAGES[code]) || "Couldn't verify the number. Try again.";
 }
