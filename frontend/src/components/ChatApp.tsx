@@ -144,7 +144,7 @@ export function ChatApp({ initialId, email }: { initialId: string | null; email:
         <main className="flex min-w-0 flex-1 flex-col">
           {activeId && (
             <div className="flex items-center gap-3 border-b border-border px-6 py-3.5">
-              <h1 className="serif truncate text-[1.35rem] leading-tight">{title ?? "New chat"}</h1>
+              <h1 className="display truncate text-[1.1rem] leading-tight">{title ?? "New chat"}</h1>
               {busy && (
                 <span className="shrink-0 rounded-full bg-accent-soft px-2.5 py-0.5 text-xs text-accent">
                   ● Working
@@ -157,7 +157,7 @@ export function ChatApp({ initialId, email }: { initialId: string | null; email:
             <div className="mx-auto flex max-w-3xl flex-col gap-5 px-4 py-7 sm:px-6">
               {!detail?.messages.length && !pending && (
                 <div className="mt-[12vh] text-center">
-                  <h1 className="serif text-5xl">What should I do?</h1>
+                  <h1 className="display text-4xl">What should I do?</h1>
                   <p className="mt-3 text-sm text-muted">
                     I work in a real browser, and keep your logins, codes and keys out of the chat.
                   </p>
@@ -329,7 +329,7 @@ function Bubble({ role, text, pending }: { role: string; text: string; pending?:
 
 export function BotMark() {
   return (
-    <span className="serif grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-foreground text-base text-background">
+    <span className="display grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-foreground text-base text-background">
       B
     </span>
   );

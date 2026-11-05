@@ -21,7 +21,7 @@ async function SignInGate() {
   return (
     <main className="flex flex-1 items-center justify-center p-6">
       <div className="w-full max-w-sm">
-        <h1 className="serif text-5xl">Browser Agent</h1>
+        <h1 className="display text-4xl">Browser Agent</h1>
         <p className="mt-3 text-sm leading-relaxed text-muted">
           Ask for something to be done on a website. It works in a real browser, and keeps your
           logins, codes and keys out of the chat.

@@ -44,7 +44,7 @@ export function Shell({
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <Link href="/chat" className="serif px-2 text-[1.6rem] leading-none">
+        <Link href="/chat" className="display px-2 text-[1.3rem] leading-none">
           Browser Agent
         </Link>
 
@@ -142,7 +142,7 @@ export function PageSection({
     <section>
       <div className="flex items-end justify-between gap-3">
         <div>
-          <h2 className="serif text-[1.85rem] leading-tight">{title}</h2>
+          <h2 className="display text-[1.5rem] leading-tight">{title}</h2>
           {note && <p className="mt-0.5 text-sm text-muted">{note}</p>}
         </div>
         {action}
