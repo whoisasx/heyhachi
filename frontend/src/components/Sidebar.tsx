@@ -169,10 +169,34 @@ export function Shell({ email, name, children }: { email: string; name: string |
   );
 }
 
+const PER_DAY = 10;
+const FOLD_KEY = "hachi:folded-days";
+const OPEN_BY_DEFAULT = new Set(["Today", "Yesterday"]);
+
 function ChatList({ onChat }: { onChat: boolean }) {
   const activeId = useSearchParams().get("c");
   const [chats, setChats] = useState<Summary[] | null>(null);
   const [query, setQuery] = useState("");
+  // Day groups fold open/closed (remembered); a day with many chats shows the first few.
+  // (read on first render: the groups only show after chats load on the client, so no hydration mismatch)
+  const [folded, setFolded] = useState<Record<string, boolean>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(FOLD_KEY) ?? "{}");
+    } catch {
+      return {}; // server render, or storage blocked
+    }
+  });
+  const [more, setMore] = useState<Set<string>>(new Set());
+  const fold = (label: string, close: boolean) =>
+    setFolded((f) => {
+      const next = { ...f, [label]: close };
+      try {
+        localStorage.setItem(FOLD_KEY, JSON.stringify(next));
+      } catch {
+        /* storage blocked */
+      }
+      return next;
+    });
 
   const load = useCallback(
     () =>
@@ -233,22 +257,76 @@ function ChatList({ onChat }: { onChat: boolean }) {
   return (
     <>
       {search}
-      {groups.map((g) => (
-        <section key={g.label} aria-label={g.label} className="pb-3">
-          <h2 className="px-2 pb-1 text-[0.68rem] uppercase tracking-wider text-muted">{g.label}</h2>
-          <ul className="flex flex-col gap-0.5">
-            {g.items.map((c) => (
-              <ChatRow
-                key={c.id}
-                chat={c}
-                active={onChat && c.id === activeId}
-                onRenamed={(title) => setChats((list) => list?.map((x) => (x.id === c.id ? { ...x, title } : x)) ?? null)}
-                onDeleted={() => setChats((list) => list?.filter((x) => x.id !== c.id) ?? null)}
-              />
-            ))}
-          </ul>
-        </section>
-      ))}
+      {groups.map((g) => {
+        const hasActive = onChat && g.items.some((c) => c.id === activeId);
+        // searching shows every match; the open chat's group is always open
+        const closed = folded[g.label] ?? !OPEN_BY_DEFAULT.has(g.label);
+        const isOpen = !!q || hasActive || !closed;
+        // the first few, plus the open chat if it's further down
+        const items =
+          q || more.has(g.label) ? g.items : g.items.filter((c, i) => i < PER_DAY || (onChat && c.id === activeId));
+        const hidden = g.items.length - items.length;
+        return (
+          <section key={g.label} aria-label={g.label} className="pb-3">
+            <h2>
+              <button
+                type="button"
+                aria-expanded={isOpen}
+                onClick={() => !q && !hasActive && fold(g.label, isOpen)}
+                className="group/day flex w-full items-center gap-1 rounded px-2 pb-1 text-[0.68rem] uppercase tracking-wider text-muted hover:text-foreground"
+              >
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                  className={`transition-transform ${isOpen ? "rotate-90" : ""}`}
+                >
+                  <path d="M9 6l6 6-6 6" />
+                </svg>
+                {g.label}
+                {!isOpen && <span className="ml-auto normal-case tracking-normal tabular-nums">{g.items.length}</span>}
+              </button>
+            </h2>
+            {isOpen && (
+              <ul className="flex flex-col gap-0.5">
+                {items.map((c) => (
+                  <ChatRow
+                    key={c.id}
+                    chat={c}
+                    active={onChat && c.id === activeId}
+                    onRenamed={(title) => setChats((list) => list?.map((x) => (x.id === c.id ? { ...x, title } : x)) ?? null)}
+                    onDeleted={() => setChats((list) => list?.filter((x) => x.id !== c.id) ?? null)}
+                  />
+                ))}
+                {!q && (hidden > 0 || more.has(g.label)) && (
+                  <li>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setMore((s) => {
+                          const n = new Set(s);
+                          if (n.has(g.label)) n.delete(g.label);
+                          else n.add(g.label);
+                          return n;
+                        })
+                      }
+                      className="rounded-md px-2.5 py-1 text-xs text-muted hover:text-foreground"
+                    >
+                      {more.has(g.label) ? "See less" : "See more"}
+                    </button>
+                  </li>
+                )}
+              </ul>
+            )}
+          </section>
+        );
+      })}
     </>
   );
 }
