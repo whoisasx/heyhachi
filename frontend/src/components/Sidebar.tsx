@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Suspense, createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { Suspense, createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { signOutAction } from "@/app/actions";
-import { api, loadChat } from "@/lib/api";
+import { ApiError, api, loadChat } from "@/lib/api";
+import { useConfirm } from "./Confirm";
 import { setTheme, useThemePref, type ThemePref } from "@/lib/theme";
 
 // ---- signed-in user, shared with pages ------------------------------------------
@@ -17,6 +18,8 @@ export const useUser = () => useContext(UserContext);
 
 const CHATS_CHANGED = "chats:changed";
 export const refreshChats = () => window.dispatchEvent(new Event(CHATS_CHANGED));
+/** Fired after a chat is renamed in the sidebar, so the open chat's header updates too. */
+export const CHAT_RENAMED = "chat:renamed";
 
 interface Summary {
   id: string;
@@ -142,22 +145,134 @@ function ChatList({ onChat }: { onChat: boolean }) {
   if (chats === null) return <ListSkeleton />;
   if (chats.length === 0) return <p className="px-2.5 text-sm text-muted">No chats yet</p>;
   return (
-    <ul className="flex flex-col gap-0.5">
-      {chats.map((c) => (
-        <li key={c.id}>
-          <Link
-            href={`/chat?c=${c.id}`}
-            onMouseEnter={() => void loadChat(c.id).catch(() => {})}
-            className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm ${
-              onChat && c.id === activeId ? "bg-sunk font-medium" : "text-foreground/80 hover:bg-sunk"
-            }`}
-          >
-            {c.active_task_id && <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent" />}
-            <span className="truncate">{c.title ?? "New chat"}</span>
-          </Link>
-        </li>
-      ))}
-    </ul>
+    <>
+      <ul className="flex flex-col gap-0.5">
+        {chats.map((c) => (
+          <ChatRow
+            key={c.id}
+            chat={c}
+            active={onChat && c.id === activeId}
+            onRenamed={(title) => setChats((list) => list?.map((x) => (x.id === c.id ? { ...x, title } : x)) ?? null)}
+            onDeleted={() => setChats((list) => list?.filter((x) => x.id !== c.id) ?? null)}
+          />
+        ))}
+      </ul>
+    </>
+  );
+}
+
+/** One chat in the sidebar. Hover shows rename and delete. */
+function ChatRow({
+  chat,
+  active,
+  onRenamed,
+  onDeleted,
+}: {
+  chat: Summary;
+  active: boolean;
+  onRenamed: (title: string) => void;
+  onDeleted: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(chat.title ?? "");
+  const [busy, setBusy] = useState(false);
+  const [dialog, confirm] = useConfirm();
+  const input = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing) input.current?.select();
+  }, [editing]);
+
+  async function save() {
+    const title = name.trim();
+    setEditing(false);
+    if (!title || title === chat.title) return setName(chat.title ?? "");
+    onRenamed(title); // show it right away
+    try {
+      await api(`/conversations/${chat.id}`, { method: "PATCH", body: JSON.stringify({ title }) });
+      window.dispatchEvent(new CustomEvent(CHAT_RENAMED, { detail: { id: chat.id, title } }));
+    } catch {
+      onRenamed(chat.title ?? "");
+      setName(chat.title ?? "");
+    }
+  }
+
+  async function remove() {
+    const ok = await confirm({
+      title: "Delete this chat?",
+      body: chat.active_task_id
+        ? "Its running task is stopped and the whole conversation is deleted. This can't be undone."
+        : "The whole conversation is deleted. This can't be undone.",
+      confirmLabel: "Delete",
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      await api(`/conversations/${chat.id}`, { method: "DELETE" });
+      onDeleted();
+      if (active) window.history.pushState(null, "", "/chat"); // instant; Next keeps the URL hooks in sync
+    } catch (err) {
+      setBusy(false);
+      window.alert(err instanceof ApiError ? err.message : "Couldn't delete the chat.");
+    }
+  }
+
+  if (editing)
+    return (
+      <li>
+        <input
+          ref={input}
+          aria-label="Chat name"
+          className="w-full rounded-lg border border-accent bg-background px-2.5 py-1.5 text-sm outline-none"
+          value={name}
+          maxLength={80}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={() => void save()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.currentTarget.blur();
+            if (e.key === "Escape") {
+              setName(chat.title ?? "");
+              setEditing(false);
+            }
+          }}
+        />
+      </li>
+    );
+
+  return (
+    <li className={`group relative ${busy ? "pointer-events-none opacity-50" : ""}`}>
+      {dialog}
+      <Link
+        href={`/chat?c=${chat.id}`}
+        onMouseEnter={() => void loadChat(chat.id).catch(() => {})}
+        className={`flex w-full items-center gap-2 rounded-lg py-1.5 pl-2.5 pr-2.5 text-left text-sm group-hover:pr-14 group-focus-within:pr-14 ${
+          active ? "bg-sunk font-medium" : "text-foreground/80 hover:bg-sunk"
+        }`}
+      >
+        {chat.active_task_id && <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent" />}
+        <span className="truncate">{chat.title ?? "New chat"}</span>
+      </Link>
+      <span className="absolute right-1 top-1/2 hidden -translate-y-1/2 items-center group-hover:flex group-focus-within:flex">
+        <RowButton label="Rename" onClick={() => setEditing(true)} d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4" />
+        <RowButton label="Delete" onClick={() => void remove()} d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" danger />
+      </span>
+    </li>
+  );
+}
+
+function RowButton({ label, onClick, d, danger }: { label: string; onClick: () => void; d: string; danger?: boolean }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      className={`grid h-6 w-6 place-items-center rounded-md text-muted hover:bg-background ${danger ? "hover:text-danger" : "hover:text-foreground"}`}
+    >
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d={d} />
+      </svg>
+    </button>
   );
 }
 

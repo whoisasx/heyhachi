@@ -7,7 +7,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { ApiError, cachedChat, loadChat, post, type ConversationDetail, type TaskStatus } from "@/lib/api";
-import { refreshChats, useUser } from "./Sidebar";
+import { CHAT_RENAMED, refreshChats, useUser } from "./Sidebar";
 import { TaskView } from "./TaskView";
 
 const EXAMPLES = [
@@ -65,6 +65,15 @@ export function ChatApp() {
       loadDetail(activeId).catch(() => setError({ text: "Couldn't load that conversation." }));
     }
   }, [activeId, loadDetail]);
+
+  useEffect(() => {
+    const onRename = (e: Event) => {
+      const { id, title } = (e as CustomEvent<{ id: string; title: string }>).detail;
+      setLoaded((cur) => (cur?.id === id ? { ...cur, title } : cur));
+    };
+    window.addEventListener(CHAT_RENAMED, onRename);
+    return () => window.removeEventListener(CHAT_RENAMED, onRename);
+  }, []);
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: "smooth" });

@@ -99,6 +99,7 @@ sequenceDiagram
 | GET | `/conversations` | List conversations |
 | POST | `/conversations` | Create a conversation |
 | GET | `/conversations/{id}` | Conversation with messages and tasks |
+| PATCH | `/conversations/{id}` | Rename a conversation |
 | DELETE | `/conversations/{id}` | Delete a conversation (cancels its active task) |
 | POST | `/conversations/{id}/messages` | Send a message → starts a task |
 | GET | `/tasks/{id}` | Task summary |
@@ -196,6 +197,10 @@ Request: `{}` (title is generated from the first message). Response `201`:
 }
 ```
 To render a task's progress lines and cards, the frontend opens its event stream (§5).
+
+### `PATCH /conversations/{id}`
+Body `{ "title": "Swiggy orders" }` (1–80 characters; spaces are trimmed). Returns `{ id, title }`.
+A renamed chat keeps its name: the automatic title is only set while the title is empty.
 
 ### `DELETE /conversations/{id}`
 `204`. Cancels any active task in it first.

@@ -104,7 +104,7 @@ def create_app(settings: Settings | None = None, executor: Executor | None = Non
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[settings.frontend_url],
-        allow_methods=["GET", "POST", "DELETE"],
+        allow_methods=["GET", "POST", "PATCH", "DELETE"],
         allow_headers=["Authorization", "Content-Type", "Last-Event-ID"],
         expose_headers=["Server-Timing"],
         max_age=3600,  # fewer preflight requests

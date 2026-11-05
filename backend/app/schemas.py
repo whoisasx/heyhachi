@@ -57,6 +57,10 @@ class ConversationDetail(BaseModel):
     tasks: list[TaskBrief]
 
 
+class RenameConversation(BaseModel):
+    title: str = Field(min_length=1, max_length=80)
+
+
 class SendMessage(BaseModel):
     content: str = Field(min_length=1, max_length=4000)
     client_message_id: uuid.UUID

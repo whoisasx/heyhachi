@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 interface Ask {
   title: string;
@@ -37,7 +38,9 @@ export function useConfirm(): [React.ReactNode, (ask: Ask) => Promise<boolean>] 
     return () => document.removeEventListener("keydown", onKey);
   }, [ask, close]);
 
-  const dialog = ask && (
+  // Rendered on <body>: a parent with a transform (the sidebar slides in) would
+  // otherwise trap this "fixed" overlay inside it.
+  const dialog = ask && createPortal(
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onMouseDown={() => close(false)}>
       <div
         role="alertdialog"
@@ -59,7 +62,8 @@ export function useConfirm(): [React.ReactNode, (ask: Ask) => Promise<boolean>] 
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 
   return [dialog, confirm];

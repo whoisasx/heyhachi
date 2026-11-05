@@ -240,6 +240,20 @@ async def test_other_users_get_404(client):
     assert (await client.post(f"/tasks/{task_id}/cancel", headers=other)).status_code == 404
 
 
+async def test_rename_conversation(client):
+    conv_id, _ = await start_task(client, "hello")
+    resp = await client.patch(f"/conversations/{conv_id}", json={"title": "  Swiggy   orders "})
+    assert resp.status_code == 200
+    assert resp.json()["title"] == "Swiggy orders"
+    assert (await client.get(f"/conversations/{conv_id}")).json()["title"] == "Swiggy orders"
+
+    blank = await client.patch(f"/conversations/{conv_id}", json={"title": "   "})
+    assert blank.status_code == 422
+    other = {"Authorization": f"Bearer {make_token(sub='google-user-2', email='x@example.com')}"}
+    resp = await client.patch(f"/conversations/{conv_id}", json={"title": "mine"}, headers=other)
+    assert resp.status_code == 404
+
+
 # ---- settings + usage --------------------------------------------------------
 
 

@@ -14,6 +14,7 @@ from app.schemas import (
     ConversationSummary,
     MessageAccepted,
     MessageOut,
+    RenameConversation,
     SendMessage,
     TaskBrief,
     TaskRef,
@@ -101,6 +102,21 @@ async def get_conversation(
         messages=[MessageOut.model_validate(m) for m in messages],
         tasks=[TaskBrief.model_validate(t) for t in tasks],
     )
+
+
+@router.patch("/conversations/{conversation_id}", response_model=ConversationCreated)
+async def rename_conversation(
+    conversation_id: uuid.UUID, body: RenameConversation, request: Request, user: CurrentUser
+) -> Conversation:
+    title = " ".join(body.title.split())  # trim and collapse spaces
+    if not title:
+        raise APIError(422, "validation_error", "Give the chat a name.")
+    async with request.app.state.session_factory() as session:
+        conv = await _owned_conversation(session, conversation_id, user.id)
+        conv.title = title
+        await session.commit()
+        await session.refresh(conv)
+        return conv
 
 
 @router.delete("/conversations/{conversation_id}", status_code=204)
