@@ -91,6 +91,8 @@ sequenceDiagram
 |---|---|---|
 | GET | `/health` | Liveness (no auth) |
 | GET | `/me` | Current user |
+| GET | `/settings` | Models and limits tasks run with (read-only) |
+| GET | `/usage` | Spend and task counts, with a per-day series |
 | GET | `/conversations` | List conversations |
 | POST | `/conversations` | Create a conversation |
 | GET | `/conversations/{id}` | Conversation with messages and tasks |
@@ -120,6 +122,28 @@ sequenceDiagram
 ### `GET /me`
 ```json
 { "id": "…", "email": "adil@example.com", "name": "Adil", "avatar_url": "…" }
+```
+
+### `GET /settings`
+Read-only; the same for every user today.
+```json
+{
+  "models": {
+    "orchestrator": { "id": "claude-sonnet-5-5", "name": "Claude Sonnet 5.5", "provider": "Anthropic" },
+    "browser": { "id": "claude-sonnet-5", "name": "Claude Sonnet 5", "provider": "Anthropic" }
+  },
+  "limits": { "cost_per_task_usd": 1.0, "browser_steps": 40, "task_minutes": 10, "wait_minutes": 10 },
+  "browser": "cloud"
+}
+```
+
+### `GET /usage?days=30`
+The user's own tasks created in the last `days` days (1–90). `avg_seconds` is over finished tasks; `null` if none.
+```json
+{
+  "days": 30, "tasks": 12, "done": 10, "failed": 2, "cost_usd": 1.84, "avg_seconds": 74,
+  "daily": [{ "date": "2026-11-05", "tasks": 3, "cost_usd": 0.41 }]
+}
 ```
 
 ### `GET /conversations?limit=20&before=<cursor>`
@@ -400,3 +424,4 @@ Found in `tasks.error.code` and `error` events.
 |---|---|
 | 2026-11-04 | Initial API |
 | 2026-11-05 | `/tasks/{id}/retry` response and errors spelled out |
+| 2026-11-05 | `GET /settings` and `GET /usage` for the Settings page |

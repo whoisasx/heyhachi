@@ -238,3 +238,29 @@ async def test_other_users_get_404(client):
     assert (await client.get(f"/tasks/{task_id}/events", headers=other)).status_code == 404
     assert (await client.get(f"/conversations/{conv_id}", headers=other)).status_code == 404
     assert (await client.post(f"/tasks/{task_id}/cancel", headers=other)).status_code == 404
+
+
+# ---- settings + usage --------------------------------------------------------
+
+
+async def test_settings_lists_models_and_limits(client):
+    body = (await client.get("/settings")).json()
+    assert body["models"]["orchestrator"]["provider"] == "Anthropic"
+    assert body["limits"]["cost_per_task_usd"] > 0
+
+
+async def test_usage_counts_own_tasks(make_client, db):
+    client = await make_client(executor=FakeExecutor(step_delay=0))
+    _, task_id = await start_task(client, "hello")
+    await wait_for_status(client, task_id, "done")
+    async with db.begin() as conn:
+        await conn.execute(text("UPDATE tasks SET cost_usd = 0.25"))
+
+    body = (await client.get("/usage?days=7")).json()
+    assert (body["tasks"], body["done"], body["failed"]) == (1, 1, 0)
+    assert body["cost_usd"] == 0.25
+    assert body["daily"][0]["tasks"] == 1
+
+    other = make_token(sub="someone-else", email="other@example.com")
+    resp = await client.get("/usage", headers={"Authorization": f"Bearer {other}"})
+    assert resp.json()["tasks"] == 0

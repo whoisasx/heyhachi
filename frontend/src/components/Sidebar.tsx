@@ -6,6 +6,7 @@ import { Suspense, createContext, useCallback, useContext, useEffect, useState, 
 
 import { signOutAction } from "@/app/actions";
 import { api } from "@/lib/api";
+import { setTheme, useThemePref, type ThemePref } from "@/lib/theme";
 
 // ---- signed-in user, shared with pages ------------------------------------------
 
@@ -26,6 +27,11 @@ interface Summary {
 const NAV = [
   { href: "/accounts", label: "Vault", icon: <Icon d="M6 10V8a6 6 0 0 1 12 0v2M5 10h14v10H5z" /> },
   { href: "/profile", label: "Profile", icon: <Icon d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0" /> },
+  {
+    href: "/settings",
+    label: "Settings",
+    icon: <Icon d="M4 7h10M18 7h2M4 17h4M12 17h8M16 5v4M10 15v4" />,
+  },
 ];
 
 /** App shell. Lives in the shared layout, so it stays mounted while you switch pages. */
@@ -86,6 +92,7 @@ export function Shell({ email, name, children }: { email: string; name: string |
             <span className="min-w-0 flex-1 truncate text-sm" title={email}>
               {email}
             </span>
+            <ThemeCycle />
             <form action={signOutAction}>
               <button type="submit" className="rounded-md px-1.5 py-1 text-xs text-muted hover:bg-sunk hover:text-foreground">
                 Sign out
@@ -173,6 +180,52 @@ export function ShellSkeleton() {
         <ListSkeleton />
       </aside>
       <div className="flex-1" />
+    </div>
+  );
+}
+
+const THEMES: { pref: ThemePref; label: string; icon: string }[] = [
+  { pref: "system", label: "System", icon: "M4 5h16v11H4zM9 20h6M12 16v4" },
+  { pref: "light", label: "Light", icon: "M12 4V2M12 22v-2M4 12H2M22 12h-2M6 6 4.6 4.6M19.4 19.4 18 18M6 18l-1.4 1.4M19.4 4.6 18 6M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" },
+  { pref: "dark", label: "Dark", icon: "M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" },
+];
+
+/** Small sidebar button: system → light → dark. */
+function ThemeCycle() {
+  const pref = useThemePref();
+  const i = THEMES.findIndex((t) => t.pref === pref);
+  const next = THEMES[(i + 1) % THEMES.length];
+  return (
+    <button
+      type="button"
+      title={`Theme: ${THEMES[i].label} (click for ${next.label})`}
+      aria-label={`Theme: ${THEMES[i].label}`}
+      className="rounded-md p-1.5 text-muted hover:bg-sunk hover:text-foreground"
+      onClick={() => setTheme(next.pref)}
+    >
+      <Icon d={THEMES[i].icon} />
+    </button>
+  );
+}
+
+/** System / Light / Dark segmented control, for the Settings page. */
+export function ThemeSwitch() {
+  const pref = useThemePref();
+  return (
+    <div className="inline-flex rounded-xl border border-border bg-sunk p-1">
+      {THEMES.map((t) => (
+        <button
+          key={t.pref}
+          type="button"
+          onClick={() => setTheme(t.pref)}
+          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition ${
+            pref === t.pref ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-foreground"
+          }`}
+        >
+          <Icon d={t.icon} />
+          {t.label}
+        </button>
+      ))}
     </div>
   );
 }

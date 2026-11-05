@@ -27,11 +27,6 @@ export default function ProfilePage() {
           />
         </PageSection>
 
-        <PageSection title="Safety" note="Limits on every task.">
-          <Row title="Spending limit per task" sub="AI and browser cost together" badge={<span className="tag">$1.00</span>} />
-          <Row title="Ask before irreversible actions" sub="Paying, ordering, sending, deleting" badge={<Badge ok>Always on</Badge>} />
-          <Row title="Waiting for you" sub="A task pauses if a card isn't answered" badge={<span className="tag">10 min</span>} />
-        </PageSection>
       </div>
     </main>
   );
