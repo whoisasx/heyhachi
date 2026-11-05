@@ -13,6 +13,7 @@ from app.errors import install_error_handlers
 from app.events import EventStore
 from app.executors.fake import FakeExecutor
 from app.live_login import LiveLoginManager
+from app.phone import PhoneStore, PhoneVerifier
 from app.ratelimit import RateLimiter
 from app.relay import Relay
 from app.routes import conversations, tasks, users
@@ -54,6 +55,10 @@ def create_app(settings: Settings | None = None, executor: Executor | None = Non
         app.state.credentials = CredentialStore(session_factory, vault)
         app.state.live_logins = LiveLoginManager(settings, SessionStore(session_factory, vault))
         app.state.message_limiter = RateLimiter(settings.messages_per_minute)
+        app.state.phones = PhoneStore(session_factory, vault)
+        app.state.phone_verifier = (
+            PhoneVerifier(settings.firebase_project_id) if settings.firebase_project_id else None
+        )
 
         await runner.startup()
         try:

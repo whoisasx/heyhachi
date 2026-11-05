@@ -1,0 +1,73 @@
+"use client";
+
+import type { ConfirmationResult, RecaptchaVerifier } from "firebase/auth";
+
+/**
+ * Phone verification with Firebase Phone Auth. Firebase is used only to send and
+ * check the SMS code; the app's sign-in stays Google (Auth.js). The Firebase
+ * session is signed out as soon as the backend has the proof.
+ * These config values are public by design (they identify the project, not secrets).
+ */
+const config = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+};
+
+export const phoneVerificationConfigured = Boolean(config.apiKey && config.projectId);
+
+// Loaded on demand, so pages that don't verify a phone don't download Firebase.
+async function getAuth() {
+  const [{ getApps, initializeApp }, auth] = await Promise.all([
+    import("firebase/app"),
+    import("firebase/auth"),
+  ]);
+  const app = getApps()[0] ?? initializeApp(config);
+  return { auth: auth.getAuth(app), lib: auth };
+}
+
+let verifier: RecaptchaVerifier | null = null;
+
+/** Sends the SMS code. `containerId` is an empty element for the invisible reCAPTCHA. */
+export async function sendCode(phone: string, containerId: string): Promise<ConfirmationResult> {
+  const { auth, lib } = await getAuth();
+  verifier?.clear();
+  verifier = new lib.RecaptchaVerifier(auth, containerId, { size: "invisible" });
+  try {
+    return await lib.signInWithPhoneNumber(auth, phone, verifier);
+  } catch (err) {
+    verifier.clear();
+    verifier = null;
+    throw err;
+  }
+}
+
+/** Checks the code and returns a short-lived proof (Firebase ID token) for the backend. */
+export async function confirmCode(confirmation: ConfirmationResult, code: string): Promise<string> {
+  const { user } = await confirmation.confirm(code);
+  const token = await user.getIdToken();
+  const { auth, lib } = await getAuth();
+  await lib.signOut(auth); // we only needed the proof
+  verifier?.clear();
+  verifier = null;
+  return token;
+}
+
+const MESSAGES: Record<string, string> = {
+  "auth/invalid-phone-number": "That number doesn't look right. Include the country code.",
+  "auth/missing-phone-number": "Enter your phone number.",
+  "auth/too-many-requests": "Too many tries. Wait a bit and try again.",
+  "auth/quota-exceeded": "Today's free SMS limit is used up. Try again tomorrow.",
+  "auth/invalid-verification-code": "That code isn't right.",
+  "auth/code-expired": "That code expired. Send a new one.",
+  "auth/captcha-check-failed": "The robot check failed. Reload and try again.",
+  "auth/operation-not-allowed": "Phone sign-in isn't switched on in Firebase yet.",
+  "auth/billing-not-enabled": "SMS needs billing switched on in Firebase.",
+  "auth/network-request-failed": "Network problem. Check your connection.",
+};
+
+export function firebaseMessage(err: unknown): string {
+  const code = (err as { code?: string })?.code;
+  return (code && MESSAGES[code]) || "Couldn't verify the number. Try again.";
+}

@@ -1,11 +1,14 @@
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Response
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
 from app.auth import CurrentUser
-from app.models import Task, User
+from app.errors import APIError
+from app.models import Task, User, UserPhone
+from app.phone import PhoneTokenError
 from app.schemas import UserOut
 
 router = APIRouter(tags=["users"])
@@ -89,3 +92,42 @@ async def usage(request: Request, user: CurrentUser, days: int = 30) -> dict[str
             for d, n, c in rows
         ],
     }
+
+
+# ---- verified phone (Firebase Phone Auth; see app/phone.py) ------------------
+
+
+class PhoneProof(BaseModel):
+    id_token: str = Field(min_length=20, max_length=4096)
+
+
+def _phone_out(row: UserPhone | None) -> dict[str, Any]:
+    if row is None:
+        return {"phone": None}
+    return {"phone": {"label": row.label, "verified_at": row.verified_at.isoformat()}}
+
+
+@router.get("/me/phone")
+async def get_phone(request: Request, user: CurrentUser) -> dict[str, Any]:
+    """The masked number, if verified, and whether verification is switched on."""
+    row = await request.app.state.phones.get(user.id)
+    return {**_phone_out(row), "verification": request.app.state.phone_verifier is not None}
+
+
+@router.post("/me/phone")
+async def verify_phone(request: Request, user: CurrentUser, body: PhoneProof) -> dict[str, Any]:
+    verifier = request.app.state.phone_verifier
+    if verifier is None:
+        raise APIError(503, "phone_unavailable", "Phone verification isn't set up on this server.")
+    try:
+        phone = await verifier.verify(body.id_token)
+    except PhoneTokenError as exc:
+        raise APIError(400, "phone_not_verified", str(exc)) from exc
+    row = await request.app.state.phones.save(user.id, phone)
+    return _phone_out(row)
+
+
+@router.delete("/me/phone", status_code=204)
+async def remove_phone(request: Request, user: CurrentUser) -> Response:
+    await request.app.state.phones.remove(user.id)
+    return Response(status_code=204)

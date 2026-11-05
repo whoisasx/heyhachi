@@ -68,6 +68,9 @@ class Settings(BaseSettings):
     browser_proxy_country: str | None = None
     browser_cloud_timeout_minutes: int = 15  # free plan maximum
 
+    # Phone verification (Firebase Phone Auth). Unset: the feature is off.
+    firebase_project_id: str | None = None
+
     vault_master_key: str | None = None  # base64 of 32 random bytes
 
     heartbeat_interval: float = 10.0

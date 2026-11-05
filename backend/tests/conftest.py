@@ -34,7 +34,7 @@ TEST_DB_URL = to_asyncpg_url(
 JWT_SECRET = "test-secret-0123456789abcdef0123456789abcdef"
 TABLES = (
     "task_inputs, task_events, messages, tasks, conversations, "
-    "credentials, sessions, audit_log, users"
+    "credentials, sessions, audit_log, user_phones, users"
 )
 
 

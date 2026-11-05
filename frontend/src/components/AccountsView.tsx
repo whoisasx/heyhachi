@@ -60,6 +60,9 @@ const ACTION_LABEL: Record<string, string> = {
   session_used: "Login used by a task",
   session_revoked: "Login removed",
   secret_pasted_in_chat: "Blocked a secret pasted in chat",
+  phone_verified: "Phone number verified",
+  phone_used: "Phone number used by a task",
+  phone_removed: "Phone number removed",
 };
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : "never");

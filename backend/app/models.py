@@ -39,6 +39,9 @@ AUDIT_ACTIONS = (
     "session_used",
     "session_revoked",
     "secret_pasted_in_chat",
+    "phone_verified",
+    "phone_used",
+    "phone_removed",
 )
 
 
@@ -92,6 +95,19 @@ class User(Base):
     avatar_url: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = _created()
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class UserPhone(EncryptedMixin, Base):
+    """The user's verified phone number (one per user), encrypted. See app/phone.py."""
+
+    __tablename__ = "user_phones"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    label: Mapped[str] = mapped_column(Text)  # masked, e.g. "+91 ••••• •3018"
+    verified_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = _created()
 
 
 class Conversation(Base):
