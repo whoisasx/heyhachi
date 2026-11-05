@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { auth, devLoginEnabled, signIn } from "@/auth";
 import { AgentDemo } from "@/components/AgentDemo";
 import { GoogleButton } from "@/components/GoogleButton";
+import { Paw } from "@/components/Logo";
 
 export default function Home() {
   return (
@@ -30,9 +31,15 @@ async function SignInGate() {
   return (
     <section className="flex flex-col px-6 py-10 sm:px-12 lg:px-16">
       <div className="my-auto w-full max-w-md">
-        <span className="display grid h-14 w-14 place-items-center rounded-2xl bg-foreground text-2xl text-background shadow-[0_12px_40px_rgba(47,91,234,0.25)]">
-          B
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="grid h-14 w-14 place-items-center rounded-2xl bg-foreground text-background shadow-[0_12px_40px_rgba(47,91,234,0.25)]">
+            <Paw size={28} />
+          </span>
+          <span>
+            <span className="display block text-xl leading-tight">Hachi</span>
+            <span className="block text-sm text-muted">The loyal agent</span>
+          </span>
+        </div>
 
         <h1 className="display mt-8 text-[2.6rem] leading-[1.05] sm:text-5xl">
           Get it done
@@ -40,8 +47,8 @@ async function SignInGate() {
           <span className="text-accent">on any website.</span>
         </h1>
         <p className="mt-5 max-w-sm leading-relaxed text-muted">
-          Tell the assistant what you need. It works in a real browser, and keeps your logins, codes
-          and keys out of the chat.
+          Tell Hachi what you need. It works in a real browser, sticks with the job until it&apos;s
+          done, and keeps your logins, codes and keys out of the chat.
         </p>
 
         <form

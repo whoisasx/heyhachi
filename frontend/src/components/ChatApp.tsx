@@ -8,26 +8,27 @@ import remarkGfm from "remark-gfm";
 
 import { ApiError, cachedChat, loadChat, post, type ConversationDetail, type TaskStatus } from "@/lib/api";
 import { CHAT_RENAMED, refreshChats, useUser } from "./Sidebar";
+import { Paw } from "./Logo";
 import { TaskView } from "./TaskView";
 
 const EXAMPLES = [
+  {
+    title: "Order food on Swiggy",
+    prompt: "Order a paneer biryani on Swiggy to my saved address. Show me the total before you pay.",
+    site: "swiggy.com",
+    icon: "M4 11h16a8 8 0 0 1-16 0zM12 3v4M8 5l1 2M16 5l-1 2M3 21h18",
+  },
+  {
+    title: "Generate a video",
+    prompt: "Generate a 5-second video of a loyal Akita waiting at a train station, using a free AI video site.",
+    site: "AI video site",
+    icon: "M3 6h12v12H3zM15 10l6-3v10l-6-3",
+  },
   {
     title: "Check a repo's stars",
     prompt: "How many stars does browser-use/browser-use have on GitHub?",
     site: "github.com",
     icon: "M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z",
-  },
-  {
-    title: "Star a repo for me",
-    prompt: "Star the repo browser-use/browser-use",
-    site: "github.com",
-    icon: "M9 18l6-6-6-6",
-  },
-  {
-    title: "Ask an AI model",
-    prompt: "Ask a free model on OpenRouter to write a haiku",
-    site: "openrouter.ai",
-    icon: "M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M6 18l2-2M16 8l2-2",
   },
 ];
 
@@ -460,8 +461,8 @@ function Working() {
 
 export function BotMark() {
   return (
-    <span className="display grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-foreground text-base text-background">
-      B
+    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-foreground text-background" title="Hachi">
+      <Paw size={15} />
     </span>
   );
 }

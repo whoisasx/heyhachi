@@ -9,8 +9,8 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 const display = Bricolage_Grotesque({ variable: "--font-bricolage", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Browser Agent",
-  description: "A chat assistant that gets things done on websites, and keeps your access safe.",
+  title: "Hachi · The loyal agent",
+  description: "Hachi gets things done on websites for you, and keeps your logins, codes and keys safe.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

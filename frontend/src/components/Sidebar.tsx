@@ -7,6 +7,7 @@ import { Suspense, createContext, useCallback, useContext, useEffect, useRef, us
 import { signOutAction } from "@/app/actions";
 import { ApiError, api, loadChat } from "@/lib/api";
 import { useConfirm } from "./Confirm";
+import { Wordmark } from "./Logo";
 import { setTheme, useThemePref, type ThemePref } from "@/lib/theme";
 
 // ---- signed-in user, shared with pages ------------------------------------------
@@ -56,8 +57,8 @@ export function Shell({ email, name, children }: { email: string; name: string |
             if ((e.target as HTMLElement).closest("a")) setOpen(false); // close the phone menu after navigating
           }}
         >
-          <Link href="/chat" className="display px-2 text-[1.3rem] leading-none">
-            Browser Agent
+          <Link href="/chat" className="px-2 text-[1.3rem] leading-none">
+            <Wordmark />
           </Link>
           <Link href="/chat" className="btn-primary">
             + New chat
@@ -291,7 +292,9 @@ export function ShellSkeleton() {
   return (
     <div className="flex min-h-0 flex-1">
       <aside className="hidden w-64 shrink-0 flex-col gap-5 border-r border-border px-3 py-5 md:flex">
-        <span className="display px-2 text-[1.3rem] leading-none">Browser Agent</span>
+        <span className="px-2 text-[1.3rem] leading-none">
+          <Wordmark />
+        </span>
         <span className="h-9 animate-pulse rounded-lg bg-sunk" />
         <ListSkeleton />
       </aside>

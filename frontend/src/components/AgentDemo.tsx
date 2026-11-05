@@ -1,3 +1,5 @@
+import { Paw } from "./Logo";
+
 /**
  * The sign-in page's left panel: a looping, CSS-only demo of the agent at work
  * (open a site, find the thing, click it, report back). Styles live in globals.css (.demo-*).
@@ -9,7 +11,11 @@ export function AgentDemo() {
       <span className="demo-glow left-[-10%] top-[-10%] bg-[#3b6cff]" />
       <span className="demo-glow bottom-[-15%] right-[-10%] bg-[#18a7a0] [animation-delay:-6s]" />
 
-      <span className="display relative text-lg tracking-tight text-white/90">Browser Agent</span>
+      <span className="display relative inline-flex items-center gap-2 text-lg tracking-tight text-white/90">
+        <Paw size={18} className="text-[#7c9cff]" />
+        Hachi
+        <span className="font-sans text-sm font-normal text-white/50">· the loyal agent</span>
+      </span>
 
       <div className="relative mx-auto w-full max-w-[34rem]">
         {/* what the user asked */}
