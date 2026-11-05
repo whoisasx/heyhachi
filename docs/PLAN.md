@@ -14,14 +14,14 @@ Each scenario shows something the assignment grades (UX, credentials, reliabilit
 |---|---|---|
 | 1 | **GitHub login with password + TOTP 2FA.** Run a second task afterwards: no login needed. | Credential vault, TOTP setup key given once through secure input, session reuse in a fresh browser |
 | 2 | **"Log into my Gmail and use it to sign into Vercel."** The user logs into Gmail once through the live browser view; the agent then uses "Sign in with Google" on Vercel. | Live-view login (no password stored), cookie storage, cross-site login. This is the assignment's own sample prompt. |
-| 3 | **"Save my OpenRouter API key, then ask a free model on OpenRouter to write a haiku."** The key is collected through a secure input and never appears in chat or model input; the reply shows only its masked label. | API key handling, no secret in chat |
+| 3 | **"Save my OpenRouter API key, then ask a free model on OpenRouter to write a haiku."** The key is collected through a secure input; the agent then calls OpenRouter's API (`call_api`) and the backend adds the key, so it never appears in chat or model input. | API key handling; the agent picks the API over the browser |
 | 4 | **"Repeat my last Swiggy order to the same address."** SMS OTP login, cart ready, confirm card, then stop before payment (or pay only on explicit confirmation). | SMS OTP flow, confirmation before irreversible actions, verifying the result |
 | 5 | **Revoke Swiggy access**, then ask for a Swiggy task again: the assistant asks to connect. | Revocation |
 
 ### Open questions
 
 - [x] Swiggy needs an Indian IP: Browser Use Cloud supports proxy country `in`. Set per site with `BROWSER_PROXY_SITES` (default `swiggy.com:in`), so other sites don't go through India.
-- [x] OpenRouter: our account is on the free tier ($0 credit, 50 free-model requests a day). Free models are text only; image and video generation need paid credit, so scenario 3 uses a free text model.
+- [x] OpenRouter: our account is on the free tier ($0 credit, 50 free-model requests a day). Free models are text only; image and video generation need paid credit, so scenario 3 uses a free text model. The website chat needs a full account login, so the agent uses the API through `call_api` instead (found in live testing).
 - [ ] Test accounts ready: GitHub (with 2FA on), Gmail, Vercel, OpenRouter, Swiggy.
 
 ---

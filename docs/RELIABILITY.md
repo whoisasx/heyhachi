@@ -2,7 +2,7 @@
 
 Manual end-to-end runs against the deployed app (real Claude, real browser). Run before the demo and after any risky change. Each row says what to do, what should happen, and what it proves.
 
-Status: **not run on the deployed app yet.** Automated coverage of the same logic: 79 backend tests (`cd backend && uv run pytest`).
+Status: **not run on the deployed app yet.** Automated coverage of the same logic: 83 backend tests (`cd backend && uv run pytest`).
 
 | # | Task | Expected | Proves |
 |---|---|---|---|
@@ -11,7 +11,7 @@ Status: **not run on the deployed app yet.** Automated coverage of the same logi
 | 3 | Same task after logging in through the live view | Repo starred; reply confirms it from the page | Live-view login, cookies saved |
 | 4 | A second GitHub task in a new chat | No login prompt; uses the saved session | Session reuse in a fresh browser |
 | 5 | GitHub with a saved password + TOTP setup key (session removed first) | Logs in with 2FA without asking; codes never shown | Password + TOTP via placeholders |
-| 6 | "Save my OpenRouter key, then ask a free model on OpenRouter to write a haiku" | Secure-input card; reply shows only the masked label | API key handling, no secret in chat |
+| 6 | "Save my OpenRouter key, then ask a free model on OpenRouter to write a haiku" | Secure-input card → `call_api` to OpenRouter with a `:free` model → haiku; key shown only as a masked label | API key handling, API over browser, no secret in chat |
 | 7 | Paste an API key into the chat box | Blocked with a "use the secure input" message; not stored | Secret detection in chat |
 | 8 | Swiggy: "repeat my last order" (Indian proxy, automatic for swiggy.com) | OTP card → cart ready → Confirm card with item and total → stops before paying | SMS OTP, confirmation before irreversible steps |
 | 9 | Reject the Confirm card in #8 | "Okay, I won't" and nothing ordered | User stays in control |

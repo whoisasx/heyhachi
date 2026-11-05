@@ -236,6 +236,26 @@ class CredentialStore:
             await db.commit()
         return out
 
+    async def api_key(
+        self, user_id: uuid.UUID, site: str, task_id: uuid.UUID | None = None
+    ) -> str | None:
+        """The site's decrypted API key for a backend API call, or None. Never log it."""
+        async with self.session_factory() as db:
+            row = await db.scalar(
+                select(Credential).where(
+                    Credential.user_id == user_id,
+                    Credential.site == site,
+                    Credential.kind == "api_key",
+                )
+            )
+            if row is None:
+                return None
+            value = self.vault.open(row, user_id=user_id, site=site, kind="api_key")
+            row.last_used_at = func.now()
+            db.add(audit(user_id, "credential_used", site, "api_key", row.id, task_id))
+            await db.commit()
+        return value["key"]
+
     async def audit_log(
         self, user_id: uuid.UUID, limit: int = 50, before: int | None = None
     ) -> tuple[list[AuditLog], int | None]:

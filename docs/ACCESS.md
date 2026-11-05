@@ -20,6 +20,7 @@ A short note on how the assistant handles the user's access to websites, why, an
 
 - **One master key in an env var.** No KMS or key rotation yet (`key_version` is stored for it).
 - **Cookies are long-lived.** A saved session is as powerful as the user's login until it expires or is revoked. We mark it expired when a task finds itself logged out.
+- **API keys are only sent to their own service.** `call_api` adds the key in the backend and only calls allowlisted API bases (OpenRouter today); any echo of the key in a response is scrubbed before the model sees it.
 - **Placeholders hide values from the model, not from the browser.** A compromised site page could read a field after it's typed. Domain scoping reduces this.
 - **Card payments** store the card without CVV, so sites that ask for CVV need the user. Paying in the demo stops before payment by default.
 - **Bot checks and CAPTCHAs** aren't bypassed; the task stops and says so. Some sites need a proxy country; it's set per site (India for Swiggy only).

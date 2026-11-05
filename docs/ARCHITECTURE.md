@@ -115,6 +115,7 @@ Every route checks the signed-in user owns the resource (404 otherwise).
      - `ask_user(question)` — asks a clarifying question
      - `list_connected_accounts()` — what access exists (metadata only)
      - `confirm_action(site, summary)` — Approve / Reject card before anything irreversible
+     - `call_api(site, method, path, body)` — the site's official API with the user's saved key, added by the backend (never seen by the model, scrubbed from responses). Allowlisted bases only: `openrouter.ai` → `https://openrouter.ai/api/v1`
   2. **Browser agent loop** — browser-use on a Browser Use Cloud browser, with saved session loaded and secrets as `sensitive_data` placeholders. TOTP codes come from browser-use itself (placeholder `<site>_bu_2fa_code`); custom tool `ask_user_for_code` pauses for SMS/email codes. Secrets are scoped to `https://*.<site>`, so they're never typed on another domain.
   3. **Verify** the result really happened, save refreshed cookies, reply.
 - Limits per task: max browser steps, max wall time, max cost.

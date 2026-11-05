@@ -16,6 +16,7 @@ import anthropic
 
 from app.browser_sessions import normalize_site
 from app.config import Settings
+from app.executors.api import ApiCaller
 from app.executors.browser import BrowserAgent
 from app.llm import LLM
 from app.runner import TaskContext, TaskFailed
@@ -36,8 +37,9 @@ form that you never see.
 - Do website work with run_browser_task: one site and one clear, self-contained \
 instruction per call, including what "done" looks like. Split multi-site requests \
 into separate calls in a sensible order.
-- Prefer an official API over the browser when the user has given an API key for it \
-and the job is a plain API call.
+- Prefer call_api over the browser when the site has API support (see the tool) and \
+the job is a plain API call. The backend adds the user's saved API key; you never \
+see it. If no key is saved, request_access with kind api_key first.
 
 Secrets:
 - Never ask the user to type a password, API key, card number, or one-time code in \
@@ -156,6 +158,32 @@ TOOLS: list[dict[str, Any]] = [
         "strict": True,
     },
     {
+        "name": "call_api",
+        "description": (
+            "Call a site's official HTTP API with the user's saved API key (added by the "
+            "backend; you never see it). Supported: openrouter.ai, base "
+            "https://openrouter.ai/api/v1 (OpenAI-style), e.g. POST /chat/completions with "
+            '{"model": "...", "messages": [...]}, or GET /models. Use models whose id ends '
+            'in ":free" unless the user asked for a paid one: paid calls spend their money, '
+            "so confirm_action first. Returns the HTTP status and the JSON body."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "site": {"type": "string", "description": "e.g. openrouter.ai"},
+                "method": {"type": "string", "enum": ["GET", "POST"]},
+                "path": {"type": "string", "description": "Path under the API base"},
+                "body": {
+                    "type": "string",
+                    "description": "JSON request body as a string ('' for GET)",
+                },
+            },
+            "required": ["site", "method", "path", "body"],
+            "additionalProperties": False,
+        },
+        "strict": True,
+    },
+    {
         "name": "list_connected_accounts",
         "description": (
             "List the sites the user has connected and what kind of access is stored "
@@ -183,10 +211,13 @@ def _initial_messages(history: list[dict[str, str]], request: str) -> list[dict[
 
 
 class Orchestrator:
-    def __init__(self, llm: LLM, browser: BrowserAgent, settings: Settings) -> None:
+    def __init__(
+        self, llm: LLM, browser: BrowserAgent, settings: Settings, api: ApiCaller | None = None
+    ) -> None:
         self.llm = llm
         self.browser = browser
         self.settings = settings
+        self.api = api or ApiCaller(settings)
 
     async def run(self, ctx: TaskContext) -> None:
         checkpoint = dict(ctx.checkpoint)
@@ -339,6 +370,22 @@ class Orchestrator:
             if not site or not instruction:
                 raise ToolError("site and instruction are required")
             return await self._browser_step(ctx, site, instruction)
+
+        if name == "call_api":
+            site = normalize_site(str(args.get("site", "")))
+            raw = str(args.get("body") or "").strip()
+            try:
+                body = json.loads(raw) if raw else None
+            except ValueError as exc:
+                raise ToolError("body must be a JSON string, or '' for none") from exc
+            result = await self.api.call(
+                ctx,
+                site=site,
+                method=str(args.get("method", "GET")),
+                path=str(args.get("path", "")),
+                body=body,
+            )
+            return json.dumps(result)
 
         raise ToolError(f"Unknown tool '{name}'. Available: {[t['name'] for t in TOOLS]}")
 
