@@ -220,7 +220,7 @@ export function TaskView({
           : "text-accent";
 
   return (
-    <div className="ml-10 flex flex-col gap-3 text-sm">
+    <div className="flex flex-col gap-3 text-sm sm:ml-10">
       <div className="card">
         <button
           className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left"

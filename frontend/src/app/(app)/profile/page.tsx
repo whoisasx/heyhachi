@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { useConfirm } from "@/components/Confirm";
 import { Select } from "@/components/Select";
-import { PageSection, useUser } from "@/components/Sidebar";
+import { PageHeader, PageSection, useUser } from "@/components/Sidebar";
 import { ApiError, api, post } from "@/lib/api";
 import { confirmCode, firebaseMessage, phoneVerificationConfigured, sendCode } from "@/lib/firebase";
 
@@ -14,12 +14,13 @@ export default function ProfilePage() {
 
   return (
     <main className="flex-1 overflow-y-auto">
-      <div className="mx-auto flex max-w-3xl flex-col gap-12 px-4 py-10 sm:px-6">
-        <PageSection title="Profile" note="How the assistant knows you.">
+      <div className="mx-auto flex max-w-3xl flex-col gap-9 px-4 py-10 sm:px-6">
+        <PageHeader title="Profile" note="How Hachi knows you, and how you sign in." />
+        <PageSection title="You">
           <Row icon={(name ?? email).charAt(0).toUpperCase()} title={name ?? email} sub={email} />
         </PageSection>
 
-        <PageSection title="Sign-in" note="You sign in with Google. A verified phone number lets the assistant log in to sites for you and only ask for the code.">
+        <PageSection title="Sign-in" note="You sign in with Google. A verified phone number lets Hachi log in to sites for you and only ask you for the code. It's never shared with sites you didn't ask for.">
           <Row icon="G" title="Google" sub="You sign in with your Google account" badge={<Badge ok>Connected</Badge>} />
           <PhoneRow />
         </PageSection>
@@ -44,7 +45,7 @@ function Row({
   flat?: boolean;
 }) {
   return (
-    <div className={`flex items-center gap-3 px-2.5 py-3.5 ${flat ? "" : "border-b border-border"}`}>
+    <div className={`flex items-center gap-3 px-4 py-3.5 ${flat ? "" : "border-b border-border"}`}>
       {icon && (
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-sunk text-sm font-semibold">{icon}</span>
       )}
@@ -271,7 +272,7 @@ function PhoneRow() {
           </p>
         </div>
       )}
-      {error && <p className="px-2.5 pb-3 text-sm text-danger">{error}</p>}
+      {error && <p className="px-4 pb-3 text-sm text-danger">{error}</p>}
       <div id="recaptcha-box" />
     </div>
   );

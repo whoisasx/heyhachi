@@ -52,12 +52,14 @@ export function CardView({ taskId, seq, card }: { taskId: string; seq: number; c
   return (
     <div ref={box} role="region" data-card="open" aria-label={card.title ?? "Hachi needs you"} className="card scroll-mb-40">
       <div className="flex items-center gap-3 border-b border-border px-4 py-3">
-        <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl text-sm font-semibold ${head.tone}`}>
-          {card.site ? card.site.charAt(0).toUpperCase() : head.icon}
+        <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${head.tone}`}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d={head.icon} />
+          </svg>
         </span>
         <div className="min-w-0 flex-1">
           <p className="font-medium">{card.title}</p>
-          {card.body && <p className="text-[0.8rem] text-muted">{card.body}</p>}
+          {card.body && <p className="text-[0.85rem] leading-snug text-muted">{card.body}</p>}
         </div>
         {card.site && (
           <a
@@ -147,12 +149,13 @@ export function CardView({ taskId, seq, card }: { taskId: string; seq: number; c
   );
 }
 
+// One tile style for every card: a line icon on a soft fill. Approvals are amber.
 const HEAD: Record<string, { icon: string; tone: string }> = {
-  question: { icon: "?", tone: "bg-accent-soft text-accent" },
-  confirm: { icon: "✓", tone: "bg-warn-soft text-warn" },
-  otp: { icon: "#", tone: "bg-sunk" },
-  connect: { icon: "→", tone: "bg-sunk" },
-  secure_input: { icon: "🔒", tone: "bg-sunk" },
+  question: { icon: "M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.7M12 17h.01M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z", tone: "bg-accent-soft text-accent" },
+  confirm: { icon: "M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6zM9 12l2 2 4-4", tone: "bg-warn-soft text-warn" },
+  otp: { icon: "M4 9h16M4 15h16M10 3 8 21M16 3l-2 18", tone: "bg-accent-soft text-accent" },
+  connect: { icon: "M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3", tone: "bg-accent-soft text-accent" },
+  secure_input: { icon: "M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z", tone: "bg-accent-soft text-accent" },
 };
 
 function Lock({ children }: { children: ReactNode }) {

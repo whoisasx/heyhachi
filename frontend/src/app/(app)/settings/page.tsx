@@ -2,8 +2,9 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 
-import { ThemeSwitch } from "@/components/Sidebar";
+import { PageHeader, ThemeSwitch } from "@/components/Sidebar";
 import { api } from "@/lib/api";
+import { useThemePref } from "@/lib/theme";
 
 interface Model {
   id: string;
@@ -31,6 +32,7 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [usage, setUsage] = useState<Usage | null>(null);
   const [error, setError] = useState(false);
+  const theme = useThemePref();
 
   useEffect(() => {
     Promise.all([api<AppSettings>("/settings"), api<Usage>("/usage?days=30")]).then(
@@ -45,17 +47,17 @@ export default function SettingsPage() {
   return (
     <main className="flex-1 overflow-y-auto">
       <div className="mx-auto flex max-w-3xl flex-col gap-9 px-4 py-10 sm:px-6">
-        <div>
-          <h1 className="display text-[1.75rem] leading-tight">Settings</h1>
-          <p className="mt-1 text-sm text-muted">How the assistant looks, what it runs on, and what it has cost.</p>
+        <PageHeader title="Settings" note="How Hachi looks, what it runs on, and what it has cost.">
           {error && <p className="mt-3 text-sm text-danger">Couldn&apos;t reach the server. Reload to try again.</p>}
-        </div>
+        </PageHeader>
 
         <Block label="Appearance">
           <div className="flex flex-wrap items-center justify-between gap-3 p-4">
             <div>
               <p className="font-medium">Theme</p>
-              <p className="text-sm text-muted">System follows your computer&apos;s setting.</p>
+              <p className="text-sm text-muted">
+                {theme === "light" ? "Always light." : theme === "dark" ? "Always dark." : "Follows your computer\u2019s setting."}
+              </p>
             </div>
             <ThemeSwitch />
           </div>
@@ -85,7 +87,7 @@ export default function SettingsPage() {
                     {p}
                   </span>
                 ))}
-                <span className="rounded-full bg-warn-soft px-2 py-0.5 text-xs text-warn">Coming soon</span>
+                <span className="rounded-full bg-sunk px-2 py-0.5 text-xs">Coming soon</span>
               </div>
             </>
           ) : (
@@ -101,6 +103,9 @@ export default function SettingsPage() {
               <Row title="Working time" sub="Time spent working, not waiting for you" right={<Mono>{settings.limits.task_minutes} min</Mono>} />
               <Row title="Waiting for you" sub="A task pauses if a card isn't answered; Resume picks it up" right={<Mono>{settings.limits.wait_minutes} min</Mono>} />
               <Row title="Ask before irreversible actions" sub="Paying, ordering, sending, deleting" right={<span className="rounded-full bg-ok-soft px-2 py-0.5 text-xs text-ok">Always on</span>} />
+              <p className="border-t border-border px-4 py-3 text-xs text-muted">
+                The same for everyone for now. When a task reaches a limit it stops and tells you; nothing is charged past it.
+              </p>
             </>
           ) : (
             <Skeleton h="h-40" />
@@ -133,13 +138,13 @@ function UsageView({ usage }: { usage: Usage }) {
     { label: "Spend", value: `$${usage.cost_usd.toFixed(2)}`, accent: true },
     { label: "Tasks", value: String(usage.tasks) },
     { label: "Success", value: finished ? `${Math.round((usage.done / finished) * 100)}%` : "—" },
-    { label: "Avg time", value: usage.avg_seconds == null ? "—" : duration(usage.avg_seconds) },
+    { label: "Avg time", value: usage.avg_seconds == null ? "—" : duration(usage.avg_seconds), tip: "Start to finish, including time spent waiting for your answers" },
   ];
   return (
     <div>
       <div className="grid grid-cols-2 sm:grid-cols-4">
         {tiles.map((t, i) => (
-          <div key={t.label} className={`p-4 ${i ? "border-l border-border" : ""} ${i > 1 ? "border-t border-border sm:border-t-0" : ""}`}>
+          <div key={t.label} title={"tip" in t ? t.tip : undefined} className={`p-4 ${i ? "border-l border-border" : ""} ${i > 1 ? "border-t border-border sm:border-t-0" : ""} ${i === 2 ? "border-l-0 sm:border-l" : ""}`}>
             <p className="font-mono text-[0.68rem] uppercase tracking-wider text-muted">{t.label}</p>
             <p className={`mt-1 font-mono text-2xl tabular-nums ${t.accent ? "text-accent" : ""}`}>{t.value}</p>
           </div>
@@ -167,7 +172,7 @@ function SpendChart({ usage }: { usage: Usage }) {
   if (!usage.tasks) return <p className="py-6 text-center text-sm text-muted">No tasks in this period yet.</p>;
   return (
     <div>
-      <div className="flex h-28 items-end gap-[3px]">
+      <div className="flex h-28 items-end gap-[3px] border-b border-border">
         {days.map((d) => (
           <div
             key={d.key}
@@ -175,7 +180,7 @@ function SpendChart({ usage }: { usage: Usage }) {
             className="group flex h-full flex-1 items-end"
           >
             <div
-              className={`w-full rounded-sm ${d.tasks ? "bg-accent group-hover:opacity-80" : "bg-sunk"}`}
+              className={`w-full rounded-sm ${d.tasks ? "bg-accent/70 group-hover:bg-accent" : "bg-sunk"}`}
               style={{ height: d.tasks ? `${Math.max(6, (d.cost_usd / max) * 100)}%` : "3px" }}
             />
           </div>
@@ -223,4 +228,10 @@ function ModelTag({ model }: { model: Model }) {
 
 const Mono = ({ children }: { children: ReactNode }) => <span className="tag text-xs">{children}</span>;
 
-const Skeleton = ({ h }: { h: string }) => <div className={`${h} animate-pulse bg-sunk`} />;
+const Skeleton = ({ h }: { h: string }) => (
+  <div className={`${h} flex flex-col gap-3 p-4`} aria-label="Loading">
+    {[70, 45, 60].map((w) => (
+      <span key={w} className="h-4 animate-pulse rounded bg-sunk" style={{ width: `${w}%` }} />
+    ))}
+  </div>
+);

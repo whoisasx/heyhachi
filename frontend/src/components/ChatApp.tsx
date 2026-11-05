@@ -27,6 +27,24 @@ const EXAMPLES = [
     icon: "M3 6h12v12H3zM15 10l6-3v10l-6-3",
   },
   {
+    title: "Book a table",
+    prompt: "Find a well-rated restaurant near me with a table for 2 tomorrow at 8pm. Ask me before booking.",
+    site: "zomato.com",
+    icon: "M5 3v8a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2V3M7 13v8M17 3c-1.7 0-3 2-3 5s1.3 4 3 4v9",
+  },
+  {
+    title: "Find a cheap flight",
+    prompt: "Find the cheapest one-way flight from Bengaluru to Delhi next Friday and show me the top 3.",
+    site: "google.com/travel",
+    icon: "M2 16l20-6-9 11-2-7zM11 14 2 16",
+  },
+  {
+    title: "Fill a form",
+    prompt: "Open the form at the link I'll give you, fill it with my profile details, and show me before submitting.",
+    site: "any website",
+    icon: "M5 3h14v18H5zM9 8h6M9 12h6M9 16h3",
+  },
+  {
     title: "Check a repo's stars",
     prompt: "How many stars does whoisasx/heyhachi have on GitHub?",
     site: "github.com",
@@ -355,7 +373,8 @@ export function ChatApp() {
                     <span className="text-accent">get done?</span>
                   </h1>
                   <p className="relative mt-4 max-w-md text-sm leading-relaxed text-muted">
-                    I work in a real browser, and keep your logins, codes and keys out of the chat.
+                    An AI agent that does tasks for you in a real browser. Your logins, codes and keys stay out of
+                    the chat, and I ask before paying.
                   </p>
                   <div className="relative mt-8 w-full text-left">{composer}</div>
                   <div className="relative mt-6 grid w-full max-w-2xl gap-3 text-left sm:grid-cols-3">
@@ -466,7 +485,7 @@ function Bubble({ role, text, at, onEdit }: { role: string; text: string; at: st
   if (role === "user")
     return (
       <div className="group flex flex-col items-end gap-1">
-        <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-foreground px-4 py-2.5 text-sm leading-relaxed text-background">
+        <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-foreground px-4 py-2.5 text-[0.95rem] leading-relaxed text-background">
           {text}
         </div>
         <MessageActions text={text} at={at} onEdit={onEdit} hover />
@@ -476,11 +495,16 @@ function Bubble({ role, text, at, onEdit }: { role: string; text: string; at: st
     <div className="group flex gap-3">
       <BotMark />
       <div className="min-w-0 flex-1">
-        <div className="prose-reply pt-0.5 text-sm leading-relaxed">
+        <div className="prose-reply pt-0.5 text-[0.95rem] leading-[1.6]">
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             components={{
-              a: ({ href, children }) => <ReplyLink href={href}>{children}</ReplyLink>,
+              a: ({ href, children }) => <ReplyLink href={href} labelled={labelledLinks(text)}>{children}</ReplyLink>,
+              table: ({ children }) => (
+                <div className="reply-table">
+                  <table>{children}</table>
+                </div>
+              ),
             }}
           >
             {text}
@@ -507,11 +531,17 @@ function hostOf(href?: string) {
  * Links in replies. A bare URL becomes a small card (site name + "Open"), so long
  * signed links never spill across the page; a labelled link stays inline.
  */
-function ReplyLink({ href, children }: { href?: string; children: React.ReactNode }) {
+/** URLs the reply already links with a label, like [Open the repo](url). */
+function labelledLinks(markdown: string) {
+  return new Set([...markdown.matchAll(/\[[^\]]+\]\((https?:\/\/[^)\s]+)\)/g)].map((m) => m[1]));
+}
+
+function ReplyLink({ href, labelled, children }: { href?: string; labelled?: Set<string>; children: React.ReactNode }) {
   const host = hostOf(href);
   const text = typeof children === "string" ? children : Array.isArray(children) ? children.join("") : "";
   const bare = !!host && (text === href || /^https?:\/\//.test(text));
   if (!host) return <span>{children}</span>;
+  if (bare && href && labelled?.has(href)) return null; // the same link is already there with a label
   if (!bare)
     return (
       <a href={href} target="_blank" rel="noopener noreferrer nofollow" title={href} className="reply-link">
@@ -601,7 +631,7 @@ function Working() {
 
 export function BotMark() {
   return (
-    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-foreground text-background" title="Hachi">
+    <span className="hidden h-7 w-7 shrink-0 place-items-center rounded-lg bg-foreground text-background sm:grid" title="Hachi">
       <Paw size={15} />
     </span>
   );

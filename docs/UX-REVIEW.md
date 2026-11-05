@@ -49,7 +49,7 @@ caused by six reviewers sharing one account at once. The *handling* of that erro
 16. **Touch targets** (phone + a11y): copy/rename/delete 23px, Sign out 23px, hamburger 30px,
     Approve/Reject 36px → ≥44px on touch (`@media (pointer: coarse)`).
 
-## P2 — polish
+## P2 — polish (done, except: Terms/Privacy pages don't exist yet, sign-in demo still read by screen readers)
 
 17. **Page headers inconsistent**: Vault has no H1, Profile H1 = H2 size, heavy rules in light mode →
     one `PageHeader` + one section label style.

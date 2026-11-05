@@ -7,7 +7,7 @@ import { SecureForm } from "./cards";
 import { useConfirm } from "./Confirm";
 import { LiveView } from "./LiveView";
 import { Select } from "./Select";
-import { PageSection } from "./Sidebar";
+import { PageHeader, PageSection } from "./Sidebar";
 
 interface Cred {
   id: string;
@@ -113,7 +113,7 @@ export function AccountsView() {
 
   return (
     <main className="flex-1 overflow-y-auto">
-      <div className="mx-auto flex max-w-3xl flex-col gap-12 px-4 py-10 sm:px-6">
+      <div className="mx-auto flex max-w-3xl flex-col gap-9 px-4 py-10 sm:px-6">
         {error && (
           <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-danger dark:bg-red-950/50">
             {error}{" "}
@@ -130,18 +130,29 @@ export function AccountsView() {
         )}
 
         {dialog}
-        <PageSection
-          title="Saved access"
-          note="Logins, keys and cards the assistant can use for you. Everything is encrypted, and saved values are never shown again, not even here."
-        >
-          {sites === null && <p className="px-2.5 py-4 text-sm text-muted">Loading…</p>}
+        <PageHeader
+          title="Vault"
+          note="Logins, keys and cards Hachi can use for you. Everything is encrypted, never shown to the AI, and never shown again, not even here."
+        />
+        <PageSection title="Saved logins and keys">
+          {sites === null && (
+            <div className="space-y-3 px-4 py-4" aria-label="Loading">
+              {[60, 45].map((w) => (
+                <div key={w} className="flex items-center gap-3">
+                  <span className="h-9 w-9 animate-pulse rounded-xl bg-sunk" />
+                  <span className="h-4 animate-pulse rounded bg-sunk" style={{ width: `${w}%` }} />
+                </div>
+              ))}
+            </div>
+          )}
           {sites?.length === 0 && (
-            <p className="px-2.5 py-4 text-sm text-muted">
-              Nothing saved yet. Add something below, or the assistant will ask when a task needs it.
-            </p>
+            <Empty
+              icon="M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z"
+              text="Nothing saved yet. Add a login below, or Hachi will ask when a task needs one."
+            />
           )}
           {sites?.map((s) => (
-            <div key={s.site} className="border-b border-border px-2.5 py-3.5">
+            <div key={s.site} className="border-b border-border px-4 py-3.5">
               <div className="flex items-center gap-3">
                 <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-sunk text-sm font-semibold">
                   {s.site.charAt(0).toUpperCase()}
@@ -206,10 +217,13 @@ export function AccountsView() {
         <AddAccess onChange={load} onError={setError} />
 
         <PageSection title="Activity" note="Every time a login, key or code was added, used or removed.">
-          {audit.length === 0 && <p className="px-2.5 py-4 text-sm text-muted">No activity yet.</p>}
+          {sites === null && <div className="m-4 h-4 w-1/2 animate-pulse rounded bg-sunk" aria-label="Loading" />}
+          {sites !== null && audit.length === 0 && (
+            <Empty icon="M12 8v4l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z" text="No activity yet. Uses of your logins and keys show up here." />
+          )}
           <ul className="text-sm">
             {audit.map((a, i) => (
-              <li key={i} className="flex justify-between gap-3 border-b border-border px-2.5 py-2.5">
+              <li key={i} className="flex justify-between gap-3 border-b border-border px-4 py-2.5 last:border-b-0">
                 <span>
                   {ACTION_LABEL[a.action] ?? a.action}
                   {a.site && a.site !== "profile" && <span className="text-muted"> · {a.site}</span>}
@@ -222,6 +236,19 @@ export function AccountsView() {
         </PageSection>
       </div>
     </main>
+  );
+}
+
+function Empty({ icon, text }: { icon: string; text: string }) {
+  return (
+    <div className="flex items-center gap-3 px-4 py-5 text-sm text-muted">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d={icon} />
+        </svg>
+      </span>
+      {text}
+    </div>
   );
 }
 
@@ -277,8 +304,9 @@ function AddAccess({ onChange, onError }: { onChange: () => void; onError: (e: s
 
   return (
     <PageSection title="Add access" note="Save a login, key or card now, so tasks don't have to stop and ask.">
-      <div className="mt-4 grid gap-2 sm:grid-cols-2">
-        <input className="input" placeholder="Site, e.g. github.com" value={site} onChange={(e) => setSite(e.target.value)} />
+      <div className="space-y-3 p-4">
+      <div className="grid gap-2 sm:grid-cols-2">
+        <input className="input" aria-label="Site" placeholder="Site, e.g. github.com" value={site} onChange={(e) => setSite(e.target.value)} />
         <Select
           label="What kind of access"
           value={kind}
@@ -290,7 +318,7 @@ function AddAccess({ onChange, onError }: { onChange: () => void; onError: (e: s
         />
       </div>
 
-      <div className="mt-3">
+      <div>
         {kind === "login" ? (
           login ? (
             <div className="space-y-2 text-sm">
@@ -316,7 +344,7 @@ function AddAccess({ onChange, onError }: { onChange: () => void; onError: (e: s
                 })
               }
             >
-              Open sign-in window
+              Open a browser to sign in
             </button>
           )
         ) : (
@@ -329,6 +357,7 @@ function AddAccess({ onChange, onError }: { onChange: () => void; onError: (e: s
             />
           )
         )}
+      </div>
       </div>
     </PageSection>
   );

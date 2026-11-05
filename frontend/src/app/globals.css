@@ -8,7 +8,7 @@
   --surface: #ffffff;
   --sunk: #f2efe9;
   --foreground: #1c1b19;
-  --muted: #7a766e;
+  --muted: #6b675f;
   --border: #e4e0d8;
   --accent: #2f5bea;
   --accent-soft: #e8eefe;
@@ -131,7 +131,7 @@ body {
   @apply w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent;
 }
 @utility card {
-  @apply overflow-hidden rounded-2xl border border-border bg-surface;
+  @apply overflow-hidden rounded-2xl border border-border bg-surface shadow-[0_1px_2px_rgba(0,0,0,0.04)];
 }
 @utility display {
   @apply font-display font-semibold tracking-[-0.02em];
@@ -162,17 +162,33 @@ body {
   border-radius: 0.25rem;
   background: var(--color-accent-soft, rgba(127, 127, 127, 0.15));
 }
-.prose-reply table {
-  border-collapse: collapse;
-  font-size: 0.85em;
-  display: block;
+/* Tables: full width, light rules between rows, quiet header; scrolls sideways if too wide. */
+.prose-reply .reply-table {
   overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+}
+.prose-reply table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9em;
+}
+.prose-reply th {
+  background: var(--sunk);
+  color: var(--muted);
+  font-size: 0.8em;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 .prose-reply th,
 .prose-reply td {
-  border: 1px solid var(--color-border, rgba(127, 127, 127, 0.3));
-  padding: 0.25rem 0.5rem;
+  padding: 0.5rem 0.85rem;
   text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.prose-reply tr:last-child td {
+  border-bottom: 0;
 }
 
 /* Google allows hiding the reCAPTCHA badge if the phone form shows its notice instead (see profile page). */

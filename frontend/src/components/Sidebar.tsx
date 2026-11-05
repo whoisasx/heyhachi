@@ -92,10 +92,10 @@ export function Shell({ email, name, children }: { email: string; name: string |
       </a>
       <div className="flex min-h-0 flex-1">
         {open && (
-          <button aria-label="Close menu" className="fixed inset-0 z-20 bg-black/30 md:hidden" onClick={() => setOpen(false)} />
+          <button aria-label="Close menu" className="fixed inset-0 z-20 bg-black/30 lg:hidden" onClick={() => setOpen(false)} />
         )}
         <aside
-          className={`fixed inset-y-0 left-0 z-30 flex w-64 shrink-0 flex-col gap-5 border-r border-border bg-background px-3 py-5 transition-transform md:static md:translate-x-0 ${
+          className={`fixed inset-y-0 left-0 z-30 flex w-64 shrink-0 flex-col gap-5 border-r border-border bg-background px-3 py-5 transition-transform lg:static lg:translate-x-0 ${
             open ? "translate-x-0" : "-translate-x-full"
           }`}
           onClick={(e) => {
@@ -152,9 +152,15 @@ export function Shell({ email, name, children }: { email: string; name: string |
         </aside>
 
         <div id="content" tabIndex={-1} className="flex min-w-0 flex-1 flex-col outline-none">
-          <button aria-label="Open menu" className="m-1 mb-0 grid h-11 w-11 place-items-center self-start rounded-md text-lg md:hidden" onClick={() => setOpen(true)}>
-            ☰
-          </button>
+          {/* phones and tablets: a slim bar with the menu button, so it never sits on top of content */}
+          <div className="flex h-12 shrink-0 items-center gap-1 border-b border-border px-1 lg:hidden">
+            <button aria-label="Open menu" className="grid h-11 w-11 place-items-center rounded-md text-lg" onClick={() => setOpen(true)}>
+              ☰
+            </button>
+            <Link href="/chat" className="text-[1.1rem] leading-none">
+              <Wordmark />
+            </Link>
+          </div>
           {children}
         </div>
       </div>
@@ -393,7 +399,7 @@ function ListSkeleton() {
 export function ShellSkeleton() {
   return (
     <div className="flex min-h-0 flex-1">
-      <aside className="hidden w-64 shrink-0 flex-col gap-5 border-r border-border px-3 py-5 md:flex">
+      <aside className="hidden w-64 shrink-0 flex-col gap-5 border-r border-border px-3 py-5 lg:flex">
         <span className="px-2 text-[1.3rem] leading-none">
           <Wordmark />
         </span>
@@ -460,6 +466,23 @@ function Icon({ d }: { d: string }) {
 }
 
 /** Page section: heading, note and a rule, with rows below. */
+/** The top of Vault, Profile and Settings: one title style, and the tab title to match. */
+export function PageHeader({ title, note, children }: { title: string; note?: ReactNode; children?: ReactNode }) {
+  useEffect(() => {
+    document.title = `${title} · Hachi`;
+    return () => {
+      document.title = "Hachi · The loyal agent";
+    };
+  }, [title]);
+  return (
+    <header>
+      <h1 className="display text-[1.75rem] leading-tight">{title}</h1>
+      {note && <p className="mt-1 max-w-xl text-sm text-muted">{note}</p>}
+      {children}
+    </header>
+  );
+}
+
 export function PageSection({
   title,
   note,
@@ -475,12 +498,12 @@ export function PageSection({
     <section>
       <div className="flex items-end justify-between gap-3">
         <div>
-          <h2 className="display text-[1.5rem] leading-tight">{title}</h2>
-          {note && <p className="mt-0.5 text-sm text-muted">{note}</p>}
+          <h2 className="font-mono text-[0.7rem] uppercase tracking-wider text-muted">{title}</h2>
+          {note && <p className="mt-1 text-sm text-muted">{note}</p>}
         </div>
         {action}
       </div>
-      <div className="mt-3 border-t border-foreground">{children}</div>
+      <div className="card mt-3 [&>*:last-child]:border-b-0">{children}</div>
     </section>
   );
 }
