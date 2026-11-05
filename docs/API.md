@@ -93,6 +93,9 @@ sequenceDiagram
 | GET | `/me` | Current user |
 | GET | `/settings` | Models and limits tasks run with (read-only) |
 | GET | `/usage` | Spend and task counts, with a per-day series |
+| GET | `/me/phone` | Verified phone number (masked) |
+| POST | `/me/phone` | Save a phone number verified with Firebase |
+| DELETE | `/me/phone` | Remove the phone number |
 | GET | `/conversations` | List conversations |
 | POST | `/conversations` | Create a conversation |
 | GET | `/conversations/{id}` | Conversation with messages and tasks |
@@ -145,6 +148,24 @@ The user's own tasks created in the last `days` days (1–90). `avg_seconds` is 
   "daily": [{ "date": "2026-11-05", "tasks": 3, "cost_usd": 0.41 }]
 }
 ```
+
+### `GET /me/phone`
+The number is never returned in full. `verification` is `false` when the server has no `FIREBASE_PROJECT_ID`.
+```json
+{ "phone": { "label": "+91 ••••• •3018", "verified_at": "2026-11-05T15:40:00Z" }, "verification": true }
+```
+`phone` is `null` when none is saved.
+
+### `POST /me/phone`
+The browser verifies the number with Firebase Phone Auth (Google sends and checks the SMS code), then sends the Firebase ID token as proof:
+```json
+{ "id_token": "<firebase id token>" }
+```
+The server checks the token's signature (Google's public keys), audience and issuer (our Firebase project), that it came from a phone sign-in, and that the code was checked in the last 10 minutes. It stores only the number, encrypted like vault secrets, and writes a `phone_verified` audit entry. Returns `{ "phone": {...} }` as above.
+Errors: `400 phone_not_verified` (bad or old token), `503 phone_unavailable` (verification not set up).
+
+### `DELETE /me/phone`
+`204`. Writes a `phone_removed` audit entry. A task that logs in with the number writes `phone_used`.
 
 ### `GET /conversations?limit=20&before=<cursor>`
 ```json
@@ -425,3 +446,4 @@ Found in `tasks.error.code` and `error` events.
 | 2026-11-04 | Initial API |
 | 2026-11-05 | `/tasks/{id}/retry` response and errors spelled out |
 | 2026-11-05 | `GET /settings` and `GET /usage` for the Settings page |
+| 2026-11-05 | `/me/phone`: phone number verified with Firebase Phone Auth |

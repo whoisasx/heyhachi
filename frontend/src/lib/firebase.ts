@@ -17,6 +17,10 @@ const config = {
 
 export const phoneVerificationConfigured = Boolean(config.apiKey && config.projectId);
 
+// Local testing only: with Firebase test numbers (fixed code, no SMS) this skips the
+// reCAPTCHA. Firebase refuses real numbers while it is on, so it can't be abused.
+const testMode = process.env.NEXT_PUBLIC_FIREBASE_TEST_PHONES === "1";
+
 // Loaded on demand, so pages that don't verify a phone don't download Firebase.
 async function getAuth() {
   const [{ getApps, initializeApp }, auth] = await Promise.all([
@@ -24,7 +28,9 @@ async function getAuth() {
     import("firebase/auth"),
   ]);
   const app = getApps()[0] ?? initializeApp(config);
-  return { auth: auth.getAuth(app), lib: auth };
+  const a = auth.getAuth(app);
+  if (testMode) a.settings.appVerificationDisabledForTesting = true;
+  return { auth: a, lib: auth };
 }
 
 let verifier: RecaptchaVerifier | null = null;
@@ -33,7 +39,13 @@ let verifier: RecaptchaVerifier | null = null;
 export async function sendCode(phone: string, containerId: string): Promise<ConfirmationResult> {
   const { auth, lib } = await getAuth();
   verifier?.clear();
-  verifier = new lib.RecaptchaVerifier(auth, containerId, { size: "invisible" });
+  // A fresh element each time: clear() leaves the old one unusable for a retry.
+  const host = document.getElementById(containerId);
+  if (!host) throw new Error(`#${containerId} is missing`);
+  host.replaceChildren();
+  const box = document.createElement("div");
+  host.appendChild(box);
+  verifier = new lib.RecaptchaVerifier(auth, box, { size: "invisible" });
   try {
     return await lib.signInWithPhoneNumber(auth, phone, verifier);
   } catch (err) {
@@ -62,7 +74,7 @@ const MESSAGES: Record<string, string> = {
   "auth/invalid-verification-code": "That code isn't right.",
   "auth/code-expired": "That code expired. Send a new one.",
   "auth/captcha-check-failed": "The robot check failed. Reload and try again.",
-  "auth/operation-not-allowed": "Phone sign-in isn't switched on in Firebase yet.",
+  "auth/operation-not-allowed": "Phone verification isn't available for this country yet.",
   "auth/billing-not-enabled": "SMS needs billing switched on in Firebase.",
   "auth/network-request-failed": "Network problem. Check your connection.",
 };
