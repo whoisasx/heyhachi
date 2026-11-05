@@ -110,7 +110,7 @@ export function Shell({ email, name, children }: { email: string; name: string |
           </Link>
 
           <div className="flex min-h-0 flex-1 flex-col">
-            <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto">
               <Suspense fallback={<ListSkeleton />}>
                 <ChatList onChat={pathname === "/chat"} />
               </Suspense>

@@ -71,6 +71,7 @@ export function ChatApp() {
   const [stopping, setStopping] = useState(false);
   const [liveView, setLiveView] = useState<{ taskId: string; url: string; site?: string } | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
+  const scroller = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
 
   // Only show what belongs to the open chat (the previous one may still be in state).
@@ -406,7 +407,7 @@ export function ChatApp() {
             </>
           )}
 
-          <div className="flex-1 overflow-y-auto">
+          <div ref={scroller} className="no-scrollbar flex-1 overflow-y-auto">
             {/* extra room at the bottom so Hachi, sitting on the message box, never covers the last card */}
             <div role="log" aria-label="Conversation" className="mx-auto flex max-w-3xl flex-col gap-5 px-4 pb-16 pt-7 sm:px-6">
               {activeId && !detail && !sending && (
@@ -452,7 +453,7 @@ export function ChatApp() {
                 </div>
               )}
               {detail?.messages.map((m) => (
-                <div key={m.id} className="flex flex-col gap-3">
+                <div key={m.id} data-msg={m.role === "user" ? m.id : undefined} className="flex scroll-mt-6 flex-col gap-3">
                   <Bubble
                     role={m.role}
                     text={m.content}
@@ -481,6 +482,12 @@ export function ChatApp() {
             </div>
           </div>
 
+          {!empty && (
+            <MessageRail
+              scroller={scroller}
+              items={detail?.messages.filter((m) => m.role === "user").map((m) => ({ id: m.id, text: m.content })) ?? []}
+            />
+          )}
           {!empty && composer}
         </main>
 
@@ -581,6 +588,67 @@ const timeOf = (iso: string) => {
     minute: "2-digit",
   });
 };
+
+/**
+ * A column of short lines on the right edge, one per message you sent. Hover a line to
+ * see the message, click it to jump there; the line for the part you're reading is lit.
+ */
+function MessageRail({ items, scroller }: { items: { id: string; text: string }[]; scroller: React.RefObject<HTMLDivElement | null> }) {
+  const [current, setCurrent] = useState<string | null>(null);
+  useEffect(() => {
+    const box = scroller.current;
+    if (!box || items.length < 2) return;
+    const update = () => {
+      const rect = box.getBoundingClientRect();
+      // scrolled to the end: the last message in view counts, even if it can't reach the top
+      const atEnd = box.scrollTop + box.clientHeight >= box.scrollHeight - 4;
+      const top = atEnd ? rect.bottom - 120 : rect.top + box.clientHeight / 3;
+      let at: string | null = items[0].id;
+      for (const el of box.querySelectorAll<HTMLElement>("[data-msg]")) {
+        if (el.getBoundingClientRect().top <= top) at = el.dataset.msg ?? at;
+      }
+      setCurrent(at);
+    };
+    update();
+    box.addEventListener("scroll", update, { passive: true });
+    return () => box.removeEventListener("scroll", update);
+  }, [items, scroller]);
+
+  if (items.length < 2) return null;
+  return (
+    <nav
+      aria-label="Jump to a message"
+      className="absolute right-2 top-1/2 z-10 hidden -translate-y-1/2 flex-col items-end py-1 sm:flex"
+    >
+      {items.map((m, i) => {
+        const on = m.id === current;
+        return (
+          <button
+            key={m.id}
+            type="button"
+            aria-label={`Message ${i + 1}: ${m.text.slice(0, 80)}`}
+            aria-current={on || undefined}
+            onClick={() =>
+              scroller.current
+                ?.querySelector(`[data-msg="${m.id}"]`)
+                ?.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" })
+            }
+            className={`group/line relative flex w-8 items-center justify-end pr-1 ${items.length > 24 ? "h-2" : "h-3.5"}`}
+          >
+            <span
+              className={`h-[2px] rounded-full transition-all duration-200 ${
+                on ? "w-5 bg-foreground" : "w-3 bg-muted/50 group-hover/line:w-5 group-hover/line:bg-foreground/80"
+              }`}
+            />
+            <span className="pointer-events-none absolute right-full top-1/2 mr-1 w-max max-w-64 -translate-y-1/2 rounded-lg border border-border bg-surface px-2.5 py-1.5 text-left text-xs leading-snug text-foreground opacity-0 shadow-[0_6px_20px_rgba(0,0,0,0.12)] transition-opacity group-hover/line:opacity-100 group-focus-visible/line:opacity-100">
+              <span className="line-clamp-2">{m.text}</span>
+            </span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
 
 function Bubble({ role, text, at, onEdit }: { role: string; text: string; at: string; onEdit?: () => void }) {
   if (role === "user")

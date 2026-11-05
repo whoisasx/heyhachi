@@ -493,3 +493,11 @@ main:has(> .page-meadow) {
   overflow-wrap: anywhere;
 }
 .prose-reply .reply-link:hover { text-decoration-color: currentColor; }
+
+/* Scrolls, without showing a scrollbar (sidebar chat list, the conversation). */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
