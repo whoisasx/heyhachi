@@ -7,6 +7,7 @@ import { Suspense, createContext, useCallback, useContext, useEffect, useRef, us
 import { signOutAction } from "@/app/actions";
 import { ApiError, api, loadChat } from "@/lib/api";
 import { useConfirm } from "./Confirm";
+import { HachiScene } from "./HachiScene";
 import { Paw, Wordmark } from "./Logo";
 import { Pet } from "./Pet";
 import { setRoam, useRoam } from "@/lib/pet";
@@ -169,6 +170,7 @@ export function Shell({ email, name, children }: { email: string; name: string |
           {children}
         </div>
       </div>
+      <HachiScene />
       <Pet />
     </UserContext.Provider>
   );
