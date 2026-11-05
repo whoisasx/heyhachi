@@ -95,7 +95,7 @@ export function Shell({ email, name, children }: { email: string; name: string |
           <button aria-label="Close menu" className="fixed inset-0 z-20 bg-black/30 lg:hidden" onClick={() => setOpen(false)} />
         )}
         <aside
-          className={`fixed inset-y-0 left-0 z-30 flex w-64 shrink-0 flex-col gap-5 border-r border-border bg-background px-3 py-5 transition-transform lg:static lg:translate-x-0 ${
+          className={`fixed inset-y-0 left-0 z-30 flex w-64 shrink-0 flex-col gap-5 border-r border-border bg-background/90 px-3 py-5 backdrop-blur-md lg:bg-background/45 transition-transform lg:static lg:translate-x-0 ${
             open ? "translate-x-0" : "-translate-x-full"
           }`}
           onClick={(e) => {

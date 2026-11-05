@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import { PageHeader, ThemeSwitch } from "@/components/Sidebar";
 import { api } from "@/lib/api";
-import { useThemePref } from "@/lib/theme";
+import { setBackdrop, useBackdrop, useThemePref, type Backdrop } from "@/lib/theme";
 
 interface Model {
   id: string;
@@ -33,6 +33,7 @@ export default function SettingsPage() {
   const [usage, setUsage] = useState<Usage | null>(null);
   const [error, setError] = useState(false);
   const theme = useThemePref();
+  const backdrop = useBackdrop();
 
   useEffect(() => {
     Promise.all([api<AppSettings>("/settings"), api<Usage>("/usage?days=30")]).then(
@@ -60,6 +61,15 @@ export default function SettingsPage() {
               </p>
             </div>
             <ThemeSwitch />
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border p-4">
+            <div>
+              <p className="font-medium">Background</p>
+              <p className="text-sm text-muted">
+                {backdrop === "hachi" ? "A dawn sky and Hachi\u2019s meadow along the bottom." : "Calm paper, nothing behind the words."}
+              </p>
+            </div>
+            <BackdropSwitch value={backdrop} />
           </div>
         </Block>
 
@@ -237,3 +247,34 @@ const Skeleton = ({ h }: { h: string }) => (
     ))}
   </div>
 );
+
+/** Paper (default) or Hachi: two little swatches that show what you get. */
+function BackdropSwitch({ value }: { value: Backdrop }) {
+  const options: { b: Backdrop; label: string; swatch: string }[] = [
+    { b: "paper", label: "Paper", swatch: "bg-background" },
+    {
+      b: "hachi",
+      label: "Hachi",
+      swatch: "bg-[linear-gradient(180deg,#dcebf6_0%,#eef3ef_50%,#a9c99a_80%,#7fa86b_100%)] dark:bg-[linear-gradient(180deg,#16202d_0%,#171a1d_50%,#2c4026_80%,#304a28_100%)]",
+    },
+  ];
+  return (
+    <div role="radiogroup" aria-label="Background" className="inline-flex rounded-xl border border-border bg-sunk p-1">
+      {options.map((o) => (
+        <button
+          key={o.b}
+          type="button"
+          role="radio"
+          aria-checked={value === o.b}
+          onClick={() => setBackdrop(o.b)}
+          className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition ${
+            value === o.b ? "bg-surface font-medium shadow-sm" : "text-muted hover:text-foreground"
+          }`}
+        >
+          <span className={`h-4 w-4 rounded-full border border-border ${o.swatch}`} aria-hidden />
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}

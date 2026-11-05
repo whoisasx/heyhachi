@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 
-import { THEME_KEY as KEY } from "./theme-script";
+import { BACKDROP_KEY, THEME_KEY as KEY } from "./theme-script";
 
 export type ThemePref = "system" | "light" | "dark";
 
@@ -52,4 +52,45 @@ function subscribe(onChange: () => void) {
 
 export function useThemePref(): ThemePref {
   return useSyncExternalStore(subscribe, read, () => "system");
+}
+
+// ---- background: "paper" (default) or "hachi" (dawn meadow) -------------------
+
+export type Backdrop = "paper" | "hachi";
+const BACKDROP_CHANGED = "backdrop:changed";
+
+function readBackdrop(): Backdrop {
+  try {
+    return localStorage.getItem(BACKDROP_KEY) === "hachi" ? "hachi" : "paper";
+  } catch {
+    return "paper";
+  }
+}
+
+export function setBackdrop(b: Backdrop) {
+  try {
+    if (b === "paper") localStorage.removeItem(BACKDROP_KEY);
+    else localStorage.setItem(BACKDROP_KEY, b);
+  } catch {
+    // storage blocked: still switch for this page view
+  }
+  document.documentElement.dataset.backdrop = b;
+  window.dispatchEvent(new Event(BACKDROP_CHANGED));
+}
+
+function subscribeBackdrop(onChange: () => void) {
+  const onOther = () => {
+    document.documentElement.dataset.backdrop = readBackdrop(); // another tab changed it
+    onChange();
+  };
+  window.addEventListener(BACKDROP_CHANGED, onChange);
+  window.addEventListener("storage", onOther);
+  return () => {
+    window.removeEventListener(BACKDROP_CHANGED, onChange);
+    window.removeEventListener("storage", onOther);
+  };
+}
+
+export function useBackdrop(): Backdrop {
+  return useSyncExternalStore(subscribeBackdrop, readBackdrop, () => "paper");
 }
