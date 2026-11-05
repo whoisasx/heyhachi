@@ -33,7 +33,7 @@
       "runtimeExecutable": "bash",
       "runtimeArgs": [
         "-c",
-        "cd backend && EXECUTOR=fake FAKE_STEP_DELAY=1 WAITING_TIMEOUT=15 uv run uvicorn app.main:app --port 8000"
+        "cd backend && EXECUTOR=fake FAKE_STEP_DELAY=1 WAITING_TIMEOUT=600 uv run uvicorn app.main:app --port 8000"
       ],
       "port": 8000
     }
