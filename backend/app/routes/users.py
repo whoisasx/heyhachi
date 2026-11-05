@@ -9,6 +9,7 @@ from app.auth import CurrentUser
 from app.errors import APIError
 from app.models import Task, User, UserPhone
 from app.phone import PhoneTokenError
+from app.profile import InvalidProfile
 from app.schemas import UserOut
 
 router = APIRouter(tags=["users"])
@@ -92,6 +93,23 @@ async def usage(request: Request, user: CurrentUser, days: int = 30) -> dict[str
             for d, n, c in rows
         ],
     }
+
+
+# ---- details for forms (see app/profile.py) -----------------------------------
+
+
+@router.get("/me/profile")
+async def get_profile(request: Request, user: CurrentUser) -> dict[str, Any]:
+    return {"details": await request.app.state.profiles.get(user.id)}
+
+
+@router.put("/me/profile")
+async def save_profile(request: Request, user: CurrentUser, body: dict[str, Any]) -> dict[str, Any]:
+    try:
+        details = await request.app.state.profiles.save(user.id, body.get("details") or {})
+    except InvalidProfile as exc:
+        raise APIError(400, "validation_error", str(exc)) from exc
+    return {"details": details}
 
 
 # ---- verified phone (Firebase Phone Auth; see app/phone.py) ------------------

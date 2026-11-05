@@ -66,6 +66,8 @@ const ACTION_LABEL: Record<string, string> = {
   phone_verified: "Phone number verified",
   phone_used: "Phone number used by a task",
   phone_removed: "Phone number removed",
+  profile_updated: "Details for forms updated",
+  profile_used: "Details for forms used by a task",
 };
 
 const when = (iso: string) =>

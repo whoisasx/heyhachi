@@ -42,6 +42,8 @@ AUDIT_ACTIONS = (
     "phone_verified",
     "phone_used",
     "phone_removed",
+    "profile_updated",
+    "profile_used",
 )
 
 
@@ -108,6 +110,18 @@ class UserPhone(EncryptedMixin, Base):
     label: Mapped[str] = mapped_column(Text)  # masked, e.g. "+91 ••••• •3018"
     verified_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = _created()
+
+
+class UserProfile(EncryptedMixin, Base):
+    """The user's details for forms (name, address...), encrypted. See app/profile.py."""
+
+    __tablename__ = "user_profiles"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    created_at: Mapped[datetime] = _created()
+    updated_at: Mapped[datetime] = _updated()
 
 
 class Conversation(Base):

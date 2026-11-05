@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { useConfirm } from "@/components/Confirm";
 import { GoogleMark } from "@/components/GoogleButton";
+import { ProfileDetails } from "@/components/ProfileDetails";
 import { Select } from "@/components/Select";
 import { PageHeader, PageSection, useUser } from "@/components/Sidebar";
 import { ApiError, api, post } from "@/lib/api";
@@ -16,7 +17,7 @@ export default function ProfilePage() {
   return (
     <main className="flex-1 overflow-y-auto">
       <div className="mx-auto flex max-w-3xl flex-col gap-9 px-4 py-10 sm:px-6">
-        <PageHeader title="Profile" note="How Hachi knows you, and how you sign in." />
+        <PageHeader title="Profile" note="How Hachi knows you, how you sign in, and the details it can fill in for you." />
         <PageSection title="You">
           <Row icon={(name ?? email).charAt(0).toUpperCase()} title={name ?? email} sub={email} />
         </PageSection>
@@ -25,6 +26,8 @@ export default function ProfilePage() {
           <Row icon={<GoogleMark size={18} />} title="Google" sub="You sign in with your Google account" badge={<Badge ok>Connected</Badge>} />
           <PhoneRow />
         </PageSection>
+
+        <ProfileDetails googleEmail={email} />
       </div>
     </main>
   );

@@ -15,6 +15,7 @@ from app.events import EventStore
 from app.executors.fake import FakeExecutor
 from app.live_login import LiveLoginManager
 from app.phone import PhoneStore, PhoneVerifier
+from app.profile import ProfileStore
 from app.ratelimit import RateLimiter
 from app.relay import Relay
 from app.routes import conversations, tasks, users
@@ -88,6 +89,7 @@ def create_app(settings: Settings | None = None, executor: Executor | None = Non
         app.state.live_logins = LiveLoginManager(settings, SessionStore(session_factory, vault))
         app.state.message_limiter = RateLimiter(settings.messages_per_minute)
         app.state.phones = PhoneStore(session_factory, vault)
+        app.state.profiles = ProfileStore(session_factory, vault)
         app.state.phone_verifier = (
             PhoneVerifier(settings.firebase_project_id) if settings.firebase_project_id else None
         )
@@ -104,7 +106,7 @@ def create_app(settings: Settings | None = None, executor: Executor | None = Non
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.frontend_origins,
-        allow_methods=["GET", "POST", "PATCH", "DELETE"],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
         allow_headers=["Authorization", "Content-Type", "Last-Event-ID"],
         expose_headers=["Server-Timing"],
         max_age=3600,  # fewer preflight requests
