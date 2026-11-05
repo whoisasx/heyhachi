@@ -34,10 +34,12 @@ export function TaskView({
   taskId,
   initialStatus,
   onFinished,
+  onLiveView,
 }: {
   taskId: string;
   initialStatus: TaskStatus;
   onFinished: () => void;
+  onLiveView?: (taskId: string, url: string | null) => void;
 }) {
   const [events, setEvents] = useState<TaskEvent[]>([]);
   const [open, setOpen] = useState(!TERMINAL.includes(initialStatus));
@@ -96,6 +98,10 @@ export function TaskView({
   }, [events, initialStatus]);
 
   const done = TERMINAL.includes(view.status);
+  const liveUrl = view.liveView && !done ? view.liveView : null;
+  useEffect(() => {
+    onLiveView?.(taskId, liveUrl);
+  }, [onLiveView, taskId, liveUrl]);
   const canRestart =
     (view.status === "failed" && view.error?.retryable) || view.status === "cancelled";
   const canResume =
@@ -128,70 +134,92 @@ export function TaskView({
       : view.status === "done"
         ? "text-ok"
         : view.status === "waiting_user"
-          ? "text-amber-600"
+          ? "text-warn"
           : "text-accent";
 
   return (
-    <div className="ml-2 rounded-xl border border-border bg-surface/60 text-sm">
-      <button
-        className="flex w-full items-center gap-2 px-3 py-2 text-left"
-        onClick={() => setOpen((o) => !o)}
-      >
-        {!done && <span className="h-2 w-2 animate-pulse rounded-full bg-accent" />}
-        <span className={`font-medium ${tone}`}>{STATUS_LABEL[view.status]}</span>
-        <span className="truncate text-muted">{view.steps.at(-1)}</span>
-        <span className="ml-auto text-xs text-muted">
-          {view.steps.length} step{view.steps.length === 1 ? "" : "s"} {open ? "▴" : "▾"}
-        </span>
-      </button>
+    <div className="ml-10 flex flex-col gap-3 text-sm">
+      <div className="card">
+        <button
+          className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left"
+          onClick={() => setOpen((o) => !o)}
+        >
+          <StepIcon state={done ? (view.status === "done" ? "ok" : "bad") : view.status === "waiting_user" ? "wait" : "run"} />
+          <span className={`font-medium ${tone}`}>{STATUS_LABEL[view.status]}</span>
+          <span className="truncate text-muted">{view.steps.at(-1)}</span>
+          <span className="ml-auto shrink-0 text-xs text-muted">
+            {view.steps.length} step{view.steps.length === 1 ? "" : "s"} {open ? "▴" : "▾"}
+          </span>
+        </button>
 
-      {open && view.steps.length > 0 && (
-        <ol className="space-y-1 border-t border-border px-3 py-2 text-muted">
-          {view.steps.map((s, i) => (
-            <li key={i} className="flex gap-2">
-              <span className="text-xs tabular-nums opacity-60">{i + 1}.</span>
-              <span>{s}</span>
-            </li>
-          ))}
-        </ol>
-      )}
+        {open && view.steps.length > 0 && (
+          <ol className="flex flex-col gap-1.5 border-t border-border px-4 py-3">
+            {view.steps.map((s, i) => {
+              const last = i === view.steps.length - 1;
+              const running = last && !done && view.status !== "waiting_user";
+              return (
+                <li key={i} className={`flex gap-2.5 ${running ? "text-foreground" : "text-muted"}`}>
+                  <StepIcon state={running ? "run" : "ok"} small />
+                  <span>{s}</span>
+                </li>
+              );
+            })}
+          </ol>
+        )}
 
-      {view.liveView && !done && (
-        <div className="border-t border-border p-3">
-          <iframe
-            src={view.liveView}
-            title="Live browser"
-            className="aspect-video w-full rounded-lg border border-border"
-            sandbox="allow-scripts allow-same-origin"
-          />
-        </div>
-      )}
+        {/* Narrow screens: live view inline. Wide screens show it in the side panel. */}
+        {liveUrl && (
+          <div className="border-t border-border p-3 xl:hidden">
+            <iframe
+              src={liveUrl}
+              title="Live browser"
+              className="aspect-video w-full rounded-lg border border-border"
+              sandbox="allow-scripts allow-same-origin"
+            />
+          </div>
+        )}
+
+        {view.error && view.status === "failed" && (
+          <p className="border-t border-border px-4 py-2.5 text-danger">{view.error.message}</p>
+        )}
+
+        {(canResume || canRestart) && (
+          <div className="flex flex-wrap items-center gap-2 border-t border-border px-4 py-2.5">
+            {canResume && (
+              <button className="btn-primary py-1.5" disabled={retrying} onClick={() => retry("resume")}>
+                Resume
+              </button>
+            )}
+            {canRestart && (
+              <button className="btn-ghost py-1.5" disabled={retrying} onClick={() => retry("restart")}>
+                Start over
+              </button>
+            )}
+            {retryError && done && <span className="text-xs text-danger">{retryError}</span>}
+          </div>
+        )}
+      </div>
 
       {view.activeCard && (
-        <div className="border-t border-border p-3">
-          <CardView taskId={taskId} seq={view.activeCard.seq} card={view.activeCard.card} />
-        </div>
-      )}
-
-      {view.error && view.status === "failed" && (
-        <p className="border-t border-border px-3 py-2 text-danger">{view.error.message}</p>
-      )}
-
-      {(canResume || canRestart) && (
-        <div className="flex flex-wrap items-center gap-2 border-t border-border px-3 py-2">
-          {canResume && (
-            <button className="btn-primary py-1.5" disabled={retrying} onClick={() => retry("resume")}>
-              Resume
-            </button>
-          )}
-          {canRestart && (
-            <button className="btn-ghost py-1.5" disabled={retrying} onClick={() => retry("restart")}>
-              Start over
-            </button>
-          )}
-          {retryError && done && <span className="text-xs text-danger">{retryError}</span>}
-        </div>
+        <CardView taskId={taskId} seq={view.activeCard.seq} card={view.activeCard.card} />
       )}
     </div>
+  );
+}
+
+function StepIcon({ state, small }: { state: "ok" | "run" | "bad" | "wait"; small?: boolean }) {
+  const size = small ? "mt-0.5 h-4 w-4 text-[9px]" : "h-[18px] w-[18px] text-[10px]";
+  if (state === "wait")
+    return <span className={`${size} grid shrink-0 place-items-center rounded-full bg-warn text-white`}>…</span>;
+  if (state === "run")
+    return <span className={`${size} shrink-0 animate-spin rounded-full border-2 border-accent border-t-transparent`} />;
+  return (
+    <span
+      className={`${size} grid shrink-0 place-items-center rounded-full text-white ${
+        state === "ok" ? "bg-ok" : "bg-danger"
+      }`}
+    >
+      {state === "ok" ? "✓" : "!"}
+    </span>
   );
 }

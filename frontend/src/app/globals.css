@@ -1,28 +1,36 @@
 @import "tailwindcss";
 
 :root {
-  --background: #fafaf9;
+  --background: #faf9f6;
   --surface: #ffffff;
-  --foreground: #1c1917;
-  --muted: #78716c;
-  --border: #e7e5e4;
-  --accent: #4f46e5;
-  --accent-soft: #eef2ff;
-  --danger: #dc2626;
-  --ok: #16a34a;
+  --sunk: #f2efe9;
+  --foreground: #1c1b19;
+  --muted: #7a766e;
+  --border: #e4e0d8;
+  --accent: #2f5bea;
+  --accent-soft: #e8eefe;
+  --danger: #c53030;
+  --ok: #1f9d55;
+  --ok-soft: #e6f6ec;
+  --warn: #b7791f;
+  --warn-soft: #fdf3e1;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0c0a09;
-    --surface: #1c1917;
-    --foreground: #f5f5f4;
-    --muted: #a8a29e;
-    --border: #292524;
-    --accent: #818cf8;
-    --accent-soft: #1e1b4b;
+    --background: #141413;
+    --surface: #1c1c1a;
+    --sunk: #232320;
+    --foreground: #ecebe7;
+    --muted: #9a968d;
+    --border: #2e2d2a;
+    --accent: #7c9cff;
+    --accent-soft: #1f2740;
     --danger: #f87171;
     --ok: #4ade80;
+    --ok-soft: #16281d;
+    --warn: #f6c26b;
+    --warn-soft: #2c2414;
   }
 }
 
@@ -36,6 +44,11 @@
   --color-accent-soft: var(--accent-soft);
   --color-danger: var(--danger);
   --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-sunk: var(--sunk);
+  --font-serif: var(--font-instrument-serif);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -50,16 +63,25 @@ body {
   @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50;
 }
 @utility btn-primary {
-  @apply btn bg-accent text-white hover:opacity-90;
+  @apply btn bg-foreground text-background hover:opacity-85;
 }
 @utility btn-ghost {
-  @apply btn border border-border bg-surface hover:bg-accent-soft;
+  @apply btn border border-border bg-surface hover:border-foreground;
 }
 @utility btn-danger {
   @apply btn border border-border bg-surface text-danger hover:bg-red-50 dark:hover:bg-red-950;
 }
 @utility input {
-  @apply w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent;
+  @apply w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent;
+}
+@utility card {
+  @apply overflow-hidden rounded-2xl border border-border bg-surface;
+}
+@utility serif {
+  @apply font-serif font-normal tracking-tight;
+}
+@utility tag {
+  @apply rounded bg-sunk px-1.5 py-0.5 font-mono text-[11.5px];
 }
 
 /* Assistant replies rendered from Markdown */

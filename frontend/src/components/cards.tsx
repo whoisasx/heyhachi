@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import { ApiError, post, type Card, type Field } from "@/lib/api";
 
@@ -22,15 +22,38 @@ export function CardView({ taskId, seq, card }: { taskId: string; seq: number; c
   const input = (kind: string, extra: Record<string, unknown>) =>
     submit(() => post(`/tasks/${taskId}/input`, { card_seq: seq, kind, ...extra }));
 
-  if (state === "sent") return <p className="text-muted">Sent. Continuing…</p>;
+  if (state === "sent")
+    return (
+      <div className="card flex items-center gap-2 px-4 py-3 text-muted">
+        <span className="grid h-4 w-4 place-items-center rounded-full bg-ok text-[9px] text-white">✓</span>
+        Sent. Continuing…
+      </div>
+    );
   const busy = state === "sending";
+  const head = HEAD[card.kind] ?? HEAD.question;
 
   return (
-    <div className="space-y-3">
-      <div>
-        <p className="font-medium">{card.title}</p>
-        {card.body && <p className="mt-1 text-muted">{card.body}</p>}
+    <div className="card">
+      <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+        <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl text-sm font-semibold ${head.tone}`}>
+          {card.site ? card.site.charAt(0).toUpperCase() : head.icon}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="font-medium">{card.title}</p>
+          {card.body && <p className="text-[13px] text-muted">{card.body}</p>}
+        </div>
+        {card.site && (
+          <a
+            href={`https://${card.site}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-ghost shrink-0 px-2.5 py-1 text-xs"
+          >
+            Open site ↗
+          </a>
+        )}
       </div>
+      <div className="space-y-3 p-4">
 
       {card.kind === "question" && <QuestionForm card={card} busy={busy} onAnswer={(text) => input("answer", { data: { text } })} />}
 
@@ -83,8 +106,21 @@ export function CardView({ taskId, seq, card }: { taskId: string; seq: number; c
       )}
 
       {error && <p className="text-danger">{error}</p>}
+      </div>
     </div>
   );
+}
+
+const HEAD: Record<string, { icon: string; tone: string }> = {
+  question: { icon: "?", tone: "bg-accent-soft text-accent" },
+  confirm: { icon: "!", tone: "bg-warn-soft text-warn" },
+  otp: { icon: "#", tone: "bg-sunk" },
+  connect: { icon: "→", tone: "bg-sunk" },
+  secure_input: { icon: "🔒", tone: "bg-sunk" },
+};
+
+function Lock({ children }: { children: ReactNode }) {
+  return <p className="flex items-center gap-1.5 text-xs text-muted">🔒 {children}</p>;
 }
 
 /** Two ways to connect: log in yourself in the live browser, or give login details. */
@@ -100,21 +136,24 @@ function ConnectChoice({
   onDetails: (secret: Record<string, string>) => void;
 }) {
   const [mode, setMode] = useState<"self" | "details">("self");
-  const tab = (m: typeof mode, label: string) => (
+  const tile = (m: typeof mode, label: string, hint: string) => (
     <button
       type="button"
-      className={`rounded-md px-3 py-1 text-xs ${mode === m ? "bg-accent-soft text-accent" : "text-muted"}`}
+      className={`flex flex-col items-start rounded-xl border px-3 py-2.5 text-left transition ${
+        mode === m ? "border-accent bg-accent-soft" : "border-border hover:border-foreground"
+      }`}
       onClick={() => setMode(m)}
     >
-      {label}
+      <span className="font-medium">{label}</span>
+      <span className="text-xs text-muted">{hint}</span>
     </button>
   );
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {!!card.fields?.length && (
-        <div className="flex gap-1">
-          {tab("self", "Log in myself")}
-          {tab("details", "Give my login details")}
+        <div className="grid gap-2 sm:grid-cols-2">
+          {tile("self", "Log in myself", "In the live browser")}
+          {tile("details", "Give my login details", "Phone or email; I'll ask for codes")}
         </div>
       )}
       {mode === "self" ? (
@@ -127,14 +166,17 @@ function ConnectChoice({
               sandbox="allow-scripts allow-same-origin allow-forms"
             />
           ) : (
-            <p className="rounded-lg bg-accent-soft px-3 py-2 text-xs">
+            <p className="rounded-lg bg-sunk px-3 py-2 text-xs">
               A browser window opened on the computer running the agent. Log in to {card.site}{" "}
               there, then come back and click Done. Your password stays in that window.
             </p>
           )}
-          <button className="btn-primary" disabled={busy} onClick={onLoggedIn}>
-            Done, I&apos;m logged in
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <button className="btn-primary" disabled={busy} onClick={onLoggedIn}>
+              Done, I&apos;m logged in
+            </button>
+            <Lock>Only the login cookies are saved, encrypted</Lock>
+          </div>
         </>
       ) : (
         <>
@@ -181,14 +223,14 @@ function OtpForm({ busy, onCode }: { busy: boolean; onCode: (c: string) => void 
   const [code, setCode] = useState("");
   return (
     <form
-      className="flex gap-2"
+      className="flex flex-wrap items-center gap-3"
       onSubmit={(e) => {
         e.preventDefault();
         onCode(code);
       }}
     >
       <input
-        className="input max-w-40 font-mono tracking-widest"
+        className="input max-w-44 py-2.5 text-center font-mono text-lg tracking-[0.4em]"
         inputMode="numeric"
         autoComplete="one-time-code"
         pattern="\d{4,8}"
@@ -199,6 +241,7 @@ function OtpForm({ busy, onCode }: { busy: boolean; onCode: (c: string) => void 
       <button className="btn-primary" disabled={busy || code.length < 4}>
         Submit code
       </button>
+      <Lock>Goes straight to the vault, never into chat</Lock>
     </form>
   );
 }
@@ -238,7 +281,7 @@ export function SecureForm({
           />
         </label>
       ))}
-      <p className="text-xs text-muted">Encrypted on arrival. Never shown in chat or to the AI.</p>
+      <Lock>Encrypted on arrival. Never shown in chat or to the AI.</Lock>
       <button className="btn-primary" disabled={busy || !complete}>
         {submitLabel}
       </button>

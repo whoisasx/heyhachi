@@ -20,15 +20,15 @@ async function SignInGate() {
 
   return (
     <main className="flex flex-1 items-center justify-center p-6">
-      <div className="w-full max-w-sm rounded-2xl border border-border bg-surface p-8 shadow-sm">
-        <h1 className="text-xl font-semibold">Browser Agent</h1>
-        <p className="mt-2 text-sm text-muted">
+      <div className="w-full max-w-sm">
+        <h1 className="serif text-5xl">Browser Agent</h1>
+        <p className="mt-3 text-sm leading-relaxed text-muted">
           Ask for something to be done on a website. It works in a real browser, and keeps your
           logins, codes and keys out of the chat.
         </p>
 
         <form
-          className="mt-6"
+          className="mt-8 border-t border-foreground pt-6"
           action={async () => {
             "use server";
             await signIn("google", { redirectTo: "/chat" });

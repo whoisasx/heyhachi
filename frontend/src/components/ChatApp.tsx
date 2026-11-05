@@ -6,6 +6,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { ApiError, api, post, type ConversationDetail, type TaskStatus } from "@/lib/api";
+import { Shell } from "./Sidebar";
 import { TaskView } from "./TaskView";
 
 interface Summary {
@@ -15,7 +16,13 @@ interface Summary {
   active_task_id: string | null;
 }
 
-export function ChatApp({ initialId }: { initialId: string | null }) {
+const EXAMPLES = [
+  "How many stars does browser-use/browser-use have on GitHub?",
+  "Star the repo browser-use/browser-use",
+  "Ask a free model on OpenRouter to write a haiku",
+];
+
+export function ChatApp({ initialId, email }: { initialId: string | null; email: string }) {
   const [conversations, setConversations] = useState<Summary[]>([]);
   const [activeId, setActiveId] = useState<string | null>(initialId);
   const [detail, setDetail] = useState<ConversationDetail | null>(null);
@@ -23,6 +30,7 @@ export function ChatApp({ initialId }: { initialId: string | null }) {
   const [sending, setSending] = useState(false);
   const [pending, setPending] = useState<string | null>(null); // shown right away while sending
   const [error, setError] = useState<{ text: string; secret?: boolean } | null>(null);
+  const [live, setLive] = useState<{ taskId: string; url: string } | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
 
   const loadList = useCallback(
@@ -50,7 +58,10 @@ export function ChatApp({ initialId }: { initialId: string | null }) {
   }, [activeId, loadDetail]);
 
   function open(id: string | null) {
-    if (id !== activeId) setDetail(null);
+    if (id !== activeId) {
+      setDetail(null);
+      setLive(null);
+    }
     setActiveId(id);
   }
 
@@ -70,6 +81,10 @@ export function ChatApp({ initialId }: { initialId: string | null }) {
     }, 5000);
     return () => clearInterval(id);
   }, [busy, activeId, loadDetail]);
+
+  const onLiveView = useCallback((taskId: string, url: string | null) => {
+    setLive((cur) => (url ? { taskId, url } : cur?.taskId === taskId ? null : cur));
+  }, []);
 
   async function send(e: { preventDefault(): void }) {
     e.preventDefault();
@@ -103,148 +118,219 @@ export function ChatApp({ initialId }: { initialId: string | null }) {
     }
   }
 
-  return (
-    <div className="flex min-h-0 flex-1">
-      <aside className="hidden w-64 shrink-0 flex-col border-r border-border bg-surface md:flex">
-        <div className="p-3">
-          <button className="btn-ghost w-full" onClick={() => open(null)}>
-            + New chat
+  const title = conversations.find((c) => c.id === activeId)?.title;
+  const chatList = (
+    <ul className="flex flex-col gap-0.5">
+      {conversations.map((c) => (
+        <li key={c.id}>
+          <button
+            onClick={() => open(c.id)}
+            className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm ${
+              c.id === activeId ? "bg-sunk font-medium" : "text-foreground/80 hover:bg-sunk"
+            }`}
+          >
+            {c.active_task_id && <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent" />}
+            <span className="truncate">{c.title ?? "New chat"}</span>
           </button>
-        </div>
-        <ul className="flex-1 overflow-y-auto px-2 pb-3">
-          {conversations.map((c) => (
-            <li key={c.id}>
-              <button
-                onClick={() => open(c.id)}
-                className={`w-full truncate rounded-md px-3 py-2 text-left text-sm ${
-                  c.id === activeId ? "bg-accent-soft text-accent" : "hover:bg-accent-soft/50"
-                }`}
-              >
-                {c.active_task_id && <span className="mr-1 text-accent">●</span>}
-                {c.title ?? "New chat"}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </aside>
+        </li>
+      ))}
+      {conversations.length === 0 && <li className="px-2.5 text-sm text-muted">No chats yet</li>}
+    </ul>
+  );
 
-      <main className="flex min-w-0 flex-1 flex-col">
-        <div className="flex-1 overflow-y-auto">
-          <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-6">
-            {!detail?.messages.length && !pending && (
-              <div className="mt-16 text-center text-muted">
-                <p className="text-lg font-medium text-foreground">What should I do?</p>
-                <p className="mt-2 text-sm">
-                  e.g. &ldquo;Star the repo browser-use/browser-use on GitHub&rdquo; or &ldquo;How
-                  many stars does it have?&rdquo;
-                </p>
-              </div>
-            )}
-            {detail?.messages.map((m) => (
-              <div key={m.id} className="flex flex-col gap-3">
-                <Bubble role={m.role} text={m.content} />
-                {m.role === "user" && m.task_id && (
-                  <TaskView
-                    key={m.task_id}
-                    taskId={m.task_id}
-                    initialStatus={taskStatus(m.task_id)}
-                    onFinished={() => {
-                      if (activeId) void loadDetail(activeId);
-                      void loadList();
-                    }}
-                  />
-                )}
-              </div>
-            ))}
-            {pending && (
-              <div className="flex flex-col gap-3">
-                <Bubble role="user" text={pending} pending />
-                <p className="ml-2 text-sm text-muted">Sending…</p>
-              </div>
-            )}
-            <div ref={bottom} />
-          </div>
-        </div>
-
-        <div className="border-t border-border bg-surface">
-          <form onSubmit={send} className="mx-auto flex max-w-3xl flex-col gap-2 px-4 py-3">
-            {error && (
-              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-danger dark:bg-red-950">
-                {error.text}
-                {!error.secret && (
-                  <button
-                    type="button"
-                    className="ml-2 underline"
-                    onClick={() => {
-                      setError(null);
-                      void loadList().catch(() => setError({ text: "Couldn't reach the server." }));
-                      if (activeId) void loadDetail(activeId).catch(() => {});
-                    }}
-                  >
-                    Try again
-                  </button>
-                )}
-                {error.secret && (
-                  <>
-                    {" "}
-                    It wasn&apos;t sent or saved. Add it in{" "}
-                    <Link href="/accounts" className="underline">
-                      Connected accounts
-                    </Link>{" "}
-                    instead.
-                  </>
-                )}
-              </p>
-            )}
-            <div className="flex gap-2">
-              <input
-                className="input"
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                placeholder={busy ? "Wait for the current task to finish…" : "Ask me to do something…"}
-                disabled={sending || busy}
-                maxLength={4000}
-              />
-              <button className="btn-primary" disabled={sending || busy || !draft.trim()}>
-                Send
-              </button>
+  return (
+    <Shell email={email} active="chat" slot={chatList} onNewChat={() => open(null)}>
+      <div className="flex min-h-0 flex-1">
+        <main className="flex min-w-0 flex-1 flex-col">
+          {activeId && (
+            <div className="flex items-center gap-3 border-b border-border px-6 py-3.5">
+              <h1 className="serif truncate text-[22px] leading-tight">{title ?? "New chat"}</h1>
+              {busy && (
+                <span className="shrink-0 rounded-full bg-accent-soft px-2.5 py-0.5 text-xs text-accent">
+                  ● Working
+                </span>
+              )}
             </div>
-            <p className="text-xs text-muted">
-              Never type passwords, codes or keys here. I&apos;ll ask for them with a secure form.
-            </p>
+          )}
+
+          <div className="flex-1 overflow-y-auto">
+            <div className="mx-auto flex max-w-3xl flex-col gap-5 px-4 py-7 sm:px-6">
+              {!detail?.messages.length && !pending && (
+                <div className="mt-[12vh] text-center">
+                  <h1 className="serif text-5xl">What should I do?</h1>
+                  <p className="mt-3 text-sm text-muted">
+                    I work in a real browser, and keep your logins, codes and keys out of the chat.
+                  </p>
+                  <div className="mt-6 flex flex-wrap justify-center gap-2">
+                    {EXAMPLES.map((ex) => (
+                      <button
+                        key={ex}
+                        className="rounded-full border border-border bg-surface px-3 py-1.5 text-xs text-muted hover:border-foreground hover:text-foreground"
+                        onClick={() => setDraft(ex)}
+                      >
+                        {ex}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {detail?.messages.map((m) => (
+                <div key={m.id} className="flex flex-col gap-3">
+                  <Bubble role={m.role} text={m.content} />
+                  {m.role === "user" && m.task_id && (
+                    <TaskView
+                      key={m.task_id}
+                      taskId={m.task_id}
+                      initialStatus={taskStatus(m.task_id)}
+                      onLiveView={onLiveView}
+                      onFinished={() => {
+                        if (activeId) void loadDetail(activeId);
+                        void loadList();
+                      }}
+                    />
+                  )}
+                </div>
+              ))}
+              {pending && (
+                <div className="flex flex-col gap-3">
+                  <Bubble role="user" text={pending} pending />
+                  <p className="ml-10 text-sm text-muted">Sending…</p>
+                </div>
+              )}
+              <div ref={bottom} />
+            </div>
+          </div>
+
+          <form onSubmit={send} className="px-4 pb-5 pt-2 sm:px-6">
+            <div className="mx-auto max-w-3xl">
+              {error && (
+                <p className="mb-2 rounded-xl bg-red-50 px-3 py-2 text-sm text-danger dark:bg-red-950/50">
+                  {error.text}
+                  {!error.secret && (
+                    <button
+                      type="button"
+                      className="ml-2 underline"
+                      onClick={() => {
+                        setError(null);
+                        void loadList().catch(() => setError({ text: "Couldn't reach the server." }));
+                        if (activeId) void loadDetail(activeId).catch(() => {});
+                      }}
+                    >
+                      Try again
+                    </button>
+                  )}
+                  {error.secret && (
+                    <>
+                      {" "}
+                      It wasn&apos;t sent or saved. Add it in the{" "}
+                      <Link href="/accounts" className="underline">
+                        Vault
+                      </Link>{" "}
+                      instead.
+                    </>
+                  )}
+                </p>
+              )}
+              <div className="rounded-2xl border border-border bg-surface p-3 shadow-[0_6px_24px_rgba(0,0,0,0.05)] focus-within:border-foreground/40">
+                <textarea
+                  className="block max-h-40 min-h-11 w-full resize-none bg-transparent text-sm outline-none placeholder:text-muted"
+                  rows={2}
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      send(e);
+                    }
+                  }}
+                  placeholder={busy ? "Wait for the current task to finish…" : "Describe what you want done on a website…"}
+                  disabled={sending || busy}
+                  maxLength={4000}
+                />
+                <div className="mt-1 flex items-center gap-2">
+                  <span className="rounded-full border border-border px-2.5 py-0.5 text-xs text-muted">$1 limit per task</span>
+                  <span className="hidden rounded-full border border-border px-2.5 py-0.5 text-xs text-muted sm:inline">
+                    Asks before paying
+                  </span>
+                  <button
+                    aria-label="Send"
+                    className="ml-auto grid h-9 w-9 place-items-center rounded-full bg-foreground text-background transition hover:opacity-85 disabled:opacity-30"
+                    disabled={sending || busy || !draft.trim()}
+                  >
+                    ↑
+                  </button>
+                </div>
+              </div>
+              <p className="mt-2 text-center text-xs text-muted">
+                Never type passwords, codes or keys here. I&apos;ll ask for them with a secure form.
+              </p>
+            </div>
           </form>
-        </div>
-      </main>
-    </div>
+        </main>
+
+        {live && (
+          <aside className="hidden w-[440px] shrink-0 flex-col border-l border-border bg-sunk xl:flex">
+            <div className="flex items-center gap-2 border-b border-border px-4 py-3.5">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-accent" />
+              <span className="text-sm font-medium">Live browser</span>
+              <a href={live.url} target="_blank" rel="noopener noreferrer" className="ml-auto text-xs text-muted hover:text-foreground">
+                Open in new tab ↗
+              </a>
+            </div>
+            <div className="p-4">
+              <iframe
+                src={live.url}
+                title="Live browser"
+                className="aspect-[4/3] w-full rounded-xl border border-border bg-surface"
+                sandbox="allow-scripts allow-same-origin allow-forms"
+              />
+              <p className="mt-3 text-xs text-muted">You can click and type in this browser to help.</p>
+            </div>
+          </aside>
+        )}
+      </div>
+    </Shell>
   );
 }
 
 function Bubble({ role, text, pending }: { role: string; text: string; pending?: boolean }) {
-  const mine = role === "user";
+  if (role === "user")
+    return (
+      <div className="flex justify-end">
+        <div
+          className={`max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-foreground px-4 py-2.5 text-sm leading-relaxed text-background ${
+            pending ? "opacity-60" : ""
+          }`}
+        >
+          {text}
+        </div>
+      </div>
+    );
   return (
-    <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-      <div
-        className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-          mine ? "whitespace-pre-wrap bg-accent text-white" : "prose-reply border border-border bg-surface"
-        } ${pending ? "opacity-60" : ""}`}
-      >
-        {mine ? (
-          text
-        ) : (
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            components={{
-              a: ({ href, children }) => (
-                <a href={href} target="_blank" rel="noopener noreferrer nofollow">
-                  {children}
-                </a>
-              ),
-            }}
-          >
-            {text}
-          </ReactMarkdown>
-        )}
+    <div className="flex gap-3">
+      <BotMark />
+      <div className="prose-reply min-w-0 flex-1 pt-0.5 text-sm leading-relaxed">
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          components={{
+            a: ({ href, children }) => (
+              <a href={href} target="_blank" rel="noopener noreferrer nofollow">
+                {children}
+              </a>
+            ),
+          }}
+        >
+          {text}
+        </ReactMarkdown>
       </div>
     </div>
+  );
+}
+
+export function BotMark() {
+  return (
+    <span className="serif grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-foreground text-base text-background">
+      B
+    </span>
   );
 }

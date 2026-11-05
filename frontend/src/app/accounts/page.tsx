@@ -4,7 +4,7 @@ import { Suspense } from "react";
 
 import { auth } from "@/auth";
 import { AccountsView } from "@/components/AccountsView";
-import { AppHeader } from "@/components/AppHeader";
+import { Shell } from "@/components/Sidebar";
 
 export default function AccountsPage() {
   return (
@@ -19,9 +19,8 @@ async function SignedInAccounts() {
   const session = await auth();
   if (!session?.user?.email) redirect("/");
   return (
-    <>
-      <AppHeader email={session.user.email} active="accounts" />
+    <Shell email={session.user.email} active="vault">
       <AccountsView />
-    </>
+    </Shell>
   );
 }

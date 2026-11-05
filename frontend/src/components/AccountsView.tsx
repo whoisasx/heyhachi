@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { ApiError, api, post, type Field } from "@/lib/api";
 import { SecureForm } from "./cards";
+import { PageSection } from "./Sidebar";
 
 interface Cred {
   id: string;
@@ -99,92 +100,87 @@ export function AccountsView() {
 
   return (
     <main className="flex-1 overflow-y-auto">
-      <div className="mx-auto max-w-3xl space-y-8 px-4 py-8">
-        <section>
-          <h1 className="text-xl font-semibold">Connected accounts</h1>
-          <p className="mt-1 text-sm text-muted">
-            What the assistant can use on your behalf. Values are encrypted and never shown,
-            not even here.
+      <div className="mx-auto flex max-w-3xl flex-col gap-12 px-4 py-10 sm:px-6">
+        {error && (
+          <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-danger dark:bg-red-950/50">
+            {error}{" "}
+            <button
+              className="underline"
+              onClick={() => {
+                setError(null);
+                void load();
+              }}
+            >
+              Try again
+            </button>
           </p>
-          {error && (
-            <p className="mt-3 text-sm text-danger">
-              {error}{" "}
-              <button
-                className="underline"
-                onClick={() => {
-                  setError(null);
-                  void load();
-                }}
-              >
-                Try again
-              </button>
-            </p>
-          )}
-        </section>
+        )}
 
-        <section className="space-y-3">
-          {sites === null && <p className="text-sm text-muted">Loading…</p>}
+        <PageSection title="Logins" note="Sites the assistant can use for you. Values are encrypted and never shown, not even here.">
+          {sites === null && <p className="px-2.5 py-4 text-sm text-muted">Loading…</p>}
           {sites?.length === 0 && (
-            <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted">
+            <p className="px-2.5 py-4 text-sm text-muted">
               Nothing connected yet. Add access below, or the assistant will ask when a task needs it.
             </p>
           )}
           {sites?.map((s) => (
-            <div key={s.site} className="rounded-xl border border-border bg-surface p-4">
-              <div className="flex items-center justify-between">
-                <h2 className="font-medium">{s.site}</h2>
+            <div key={s.site} className="border-b border-border px-2.5 py-3.5">
+              <div className="flex items-center gap-3">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-sunk text-sm font-semibold">
+                  {s.site.charAt(0).toUpperCase()}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium">{s.site.split(".")[0].replace(/^./, (c) => c.toUpperCase())}</p>
+                  <span className="tag">{s.site}</span>
+                </div>
+                {s.session && (
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs ${
+                      s.session.status === "active" ? "bg-ok-soft text-ok" : "bg-warn-soft text-warn"
+                    }`}
+                  >
+                    {s.session.status === "active" ? "Logged in" : s.session.status}
+                  </span>
+                )}
                 <button
-                  className="btn-danger py-1.5"
+                  className="btn-ghost px-2.5 py-1 text-xs text-danger"
                   onClick={() => {
                     if (confirm(`Revoke everything for ${s.site}? Running tasks using it will stop.`))
                       void act(() => api(`/vault/sites/${encodeURIComponent(s.site)}`, { method: "DELETE" }));
                   }}
                 >
-                  Revoke all
+                  Revoke
                 </button>
               </div>
-              <ul className="mt-3 divide-y divide-border text-sm">
+              <ul className="mt-2 ml-12 space-y-1 text-sm">
                 {s.session && (
-                  <li className="flex items-center justify-between py-2">
-                    <span>
-                      Saved login{" "}
-                      <span className={s.session.status === "active" ? "text-ok" : "text-amber-600"}>
-                        ({s.session.status})
-                      </span>
-                    </span>
-                    <span className="text-xs text-muted">updated {when(s.session.updated_at)}</span>
-                  </li>
+                  <li className="text-xs text-muted">Saved login · updated {when(s.session.updated_at)}</li>
                 )}
                 {s.credentials.map((c) => (
-                  <li key={c.id} className="flex items-center justify-between gap-3 py-2">
-                    <span>
-                      {KINDS.find((k) => k.kind === c.kind)?.label ?? c.kind}:{" "}
-                      <span className="font-mono text-xs">{c.label}</span>
-                    </span>
-                    <span className="flex items-center gap-3">
-                      <span className="text-xs text-muted">used {when(c.last_used_at)}</span>
-                      <button
-                        className="text-xs text-danger hover:underline"
-                        onClick={() => void act(() => api(`/vault/credentials/${c.id}`, { method: "DELETE" }))}
-                      >
-                        Remove
-                      </button>
-                    </span>
+                  <li key={c.id} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span>{KINDS.find((k) => k.kind === c.kind)?.label ?? c.kind}</span>
+                    <span className="tag">{c.label}</span>
+                    <span className="text-xs text-muted">used {when(c.last_used_at)}</span>
+                    <button
+                      className="text-xs text-danger hover:underline"
+                      onClick={() => void act(() => api(`/vault/credentials/${c.id}`, { method: "DELETE" }))}
+                    >
+                      Remove
+                    </button>
                   </li>
                 ))}
               </ul>
             </div>
           ))}
-        </section>
+        </PageSection>
 
         <AddAccess onChange={load} onError={setError} />
 
-        <section>
-          <h2 className="font-medium">Recent activity</h2>
-          <ul className="mt-2 divide-y divide-border rounded-xl border border-border bg-surface text-sm">
-            {audit.length === 0 && <li className="p-3 text-muted">No activity yet.</li>}
+        <PageSection title="Activity" note="Every use of a login, key or code.">
+          {audit.length === 0 && <p className="px-2.5 py-4 text-sm text-muted">No activity yet.</p>}
+          <ul className="text-sm">
             {audit.map((a, i) => (
-              <li key={i} className="flex justify-between gap-3 px-3 py-2">
+              <li key={i} className="flex justify-between gap-3 border-b border-border px-2.5 py-2.5">
                 <span>
                   {ACTION_LABEL[a.action] ?? a.action}
                   {a.site && <span className="text-muted"> · {a.site}</span>}
@@ -194,7 +190,7 @@ export function AccountsView() {
               </li>
             ))}
           </ul>
-        </section>
+        </PageSection>
       </div>
     </main>
   );
@@ -222,9 +218,8 @@ function AddAccess({ onChange, onError }: { onChange: () => void; onError: (e: s
   const spec = KINDS.find((k) => k.kind === kind);
 
   return (
-    <section className="rounded-xl border border-border bg-surface p-4">
-      <h2 className="font-medium">Add access</h2>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+    <PageSection title="Add access" note="Give the assistant a login, key or card ahead of time.">
+      <div className="mt-4 grid gap-2 sm:grid-cols-2">
         <input className="input" placeholder="Site, e.g. github.com" value={site} onChange={(e) => setSite(e.target.value)} />
         <select className="input" value={kind} onChange={(e) => setKind(e.target.value)}>
           <option value="login">Log in myself in a browser</option>
@@ -240,7 +235,7 @@ function AddAccess({ onChange, onError }: { onChange: () => void; onError: (e: s
         {kind === "login" ? (
           login ? (
             <div className="space-y-2 text-sm">
-              <p className="rounded-lg bg-accent-soft px-3 py-2 text-xs">
+              <p className="rounded-lg bg-sunk px-3 py-2 text-xs">
                 A browser window opened on the computer running the agent. Log in to {login.site} there,
                 then click Done. Your password stays in that window; only the login cookies are saved.
               </p>
@@ -296,6 +291,6 @@ function AddAccess({ onChange, onError }: { onChange: () => void; onError: (e: s
           )
         )}
       </div>
-    </section>
+    </PageSection>
   );
 }
