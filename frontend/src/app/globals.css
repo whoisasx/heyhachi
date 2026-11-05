@@ -271,7 +271,7 @@ body {
   .home-glow { animation: none; }
 }
 
-/* Hachi the pet (components/Pet.tsx) */
+/* Hachi the pet (components/Pet.tsx); the drawings animate themselves */
 .pet {
   position: fixed;
   left: 0;
@@ -281,33 +281,40 @@ body {
   transition-property: translate, opacity;
   transition-timing-function: linear, ease;
 }
-.pet svg {
+.pet-body { position: relative; transform-origin: 0 0; transition: scale 0.6s ease; }
+.pet img {
+  position: absolute;
+  max-width: none;
   pointer-events: auto;
   cursor: pointer;
-  overflow: visible;
-  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.18));
+  user-select: none;
+  filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.2));
 }
-.pet-flip { scale: -1 1; }
-.pet-tail { transform-box: view-box; animation: pet-wag 0.9s ease-in-out infinite alternate; }
-.pet-walking .pet-tail, .pet-petted .pet-tail { animation-duration: 0.18s; }
-.pet-leg-a, .pet-leg-b { transform-box: fill-box; transform-origin: 50% 0; }
-.pet-walking .pet-leg-a { animation: pet-step 0.28s ease-in-out infinite alternate; }
-.pet-walking .pet-leg-b { animation: pet-step 0.28s ease-in-out infinite alternate-reverse; }
-.pet-eye { transform-box: fill-box; transform-origin: center; animation: pet-blink 4.5s infinite; }
-.pet-petted svg { animation: pet-hop 0.5s ease-out 2; }
+.pet-petted img { animation: pet-hop 0.5s ease-out 2; }
 .pet-heart {
   position: absolute;
-  left: 50%;
-  top: -6px;
+  left: 0;
+  top: -78px;
   color: #f0567a;
-  font-size: 16px;
+  font-size: 18px;
   animation: pet-heart 1.2s ease-out forwards;
 }
-@keyframes pet-wag { from { rotate: -10deg; } to { rotate: 16deg; } }
-@keyframes pet-step { from { rotate: -24deg; } to { rotate: 24deg; } }
-@keyframes pet-blink { 0%, 94%, 100% { scale: 1 1; } 97% { scale: 1 0.1; } }
-@keyframes pet-hop { 0%, 100% { translate: 0 0; } 40% { translate: 0 -7px; } }
+.pet-sparkle {
+  position: fixed;
+  z-index: 39;
+  pointer-events: none;
+  color: #ffd166;
+  font-size: 10px;
+  text-shadow: 0 0 6px rgba(255, 209, 102, 0.8);
+  animation: pet-sparkle 2.2s ease-out forwards;
+}
+@keyframes pet-hop { 0%, 100% { translate: 0 0; } 40% { translate: 0 -8px; } }
 @keyframes pet-heart { from { opacity: 1; translate: -50% 0; } to { opacity: 0; translate: -50% -26px; } }
+@keyframes pet-sparkle {
+  0% { opacity: 0; scale: 0.4; }
+  25% { opacity: 1; scale: 1; }
+  100% { opacity: 0; scale: 0.6; translate: 0 -14px; }
+}
 @media (prefers-reduced-motion: reduce) {
-  .pet, .pet * { animation: none !important; transition: none !important; }
+  .pet, .pet *, .pet-sparkle { animation: none !important; transition: none !important; }
 }

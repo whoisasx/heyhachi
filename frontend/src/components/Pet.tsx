@@ -5,103 +5,165 @@ import { useEffect, useRef, useState } from "react";
 import { useRoam } from "@/lib/pet";
 
 /**
- * Hachi, a small golden retriever.
- * - Normally sits on the top-right corner of the chat box.
- * - With "Let Hachi roam" on, walks over to sit beside the open chat in the sidebar,
+ * Hachi, a golden retriever (drawings in public/pet, made by scripts/pet.py).
+ * - Normally sits on the top-right corner of the chat box, facing you.
+ * - With "Let Hachi roam" on, walks to sit beside the open chat in the sidebar,
  *   or wanders around the screen when no chat is open.
+ * It walks slowly, only straight across or straight up/down, and leaves a faint sparkle trail.
  * Pages mark the spots with data-pet="composer" and data-pet="active-chat".
  */
 
-const W = 60;
-const H = 45;
-const SPEED = 0.15; // px per ms
-
+type Pose = "sit" | "front" | "side";
 type Face = 1 | -1;
-type Spot = { x: number; y: number; face: Face };
+interface Spot {
+  x: number; // where the paws touch the ground
+  y: number;
+  scale: number;
+}
 interface View extends Spot {
+  pose: Pose;
+  face: Face;
   ms: number;
-  walking: boolean;
   shown: boolean;
 }
 
-function visible(r: DOMRect) {
-  return r.width > 0 && r.left >= 0 && r.top >= 0 && r.bottom <= window.innerHeight && r.right <= window.innerWidth;
+const SRC: Record<Pose, string> = { sit: "/pet/sit.svg", front: "/pet/walk-front.svg", side: "/pet/walk-side.svg" };
+// width, height, and how far down the picture the paws are
+const BOX: Record<Pose, [number, number, number]> = {
+  sit: [64, 64, 114 / 120],
+  front: [64, 64, 114 / 120],
+  side: [90, 63, 95 / 100],
+};
+const SPEED = 45; // px per second: an easy stroll
+const REST = [3000, 8000]; // ms to sit between wanders
+
+function onScreen(r: DOMRect) {
+  return r.width > 0 && r.left >= 0 && r.top >= 40 && r.bottom <= window.innerHeight && r.right + 50 <= window.innerWidth;
 }
 
-/** Where Hachi should be right now: a spot, "wander", or null (nowhere to sit, so hide). */
+/** Where Hachi should be: a spot, "wander", or null (nowhere to sit, so hide). */
 function target(roam: boolean): Spot | "wander" | null {
   if (roam) {
-    const row = document.querySelector<HTMLElement>('[data-pet="active-chat"]');
-    const r = row?.getBoundingClientRect();
-    if (r && visible(r)) return { x: r.right + 4, y: r.top + r.height / 2 - H + 9, face: -1 };
+    const r = document.querySelector('[data-pet="active-chat"]')?.getBoundingClientRect();
+    if (r && onScreen(r)) return { x: r.right + 24, y: r.bottom + 1, scale: 0.72 };
     return "wander";
   }
-  const box = document.querySelector<HTMLElement>('[data-pet="composer"]');
-  const r = box?.getBoundingClientRect();
+  const r = document.querySelector('[data-pet="composer"]')?.getBoundingClientRect();
   if (!r || !r.width) return null;
-  return { x: r.right - W - 18, y: r.top - H + 4, face: -1 };
+  return { x: r.right - 52, y: r.top + 3, scale: 1 };
 }
 
 function randomSpot(): Spot {
-  const pad = 16;
   return {
-    x: pad + Math.random() * Math.max(0, window.innerWidth - W - 2 * pad),
-    y: 70 + Math.random() * Math.max(0, window.innerHeight - H - 150),
-    face: Math.random() < 0.5 ? 1 : -1,
+    x: 60 + Math.random() * Math.max(0, window.innerWidth - 120),
+    y: 120 + Math.random() * Math.max(0, window.innerHeight - 180),
+    scale: 1,
   };
 }
+
+const far = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.abs(a.x - b.x) > 3 || Math.abs(a.y - b.y) > 3;
 
 export function Pet() {
   const roam = useRoam();
   const [view, setView] = useState<View | null>(null);
   const [petted, setPetted] = useState(0);
-  const at = useRef<Spot | null>(null); // where Hachi is (or is walking to)
+  const [sparkles, setSparkles] = useState<{ id: number; x: number; y: number }[]>([]);
+  const box = useRef<HTMLDivElement>(null);
+  const face = useRef<Face>(1);
+
+  /** Where Hachi actually is right now, even mid-walk. */
+  const now = () => {
+    const el = box.current;
+    if (!el) return null;
+    const [x, y] = getComputedStyle(el).translate.split(" ").map(parseFloat);
+    return Number.isFinite(x) ? { x, y: Number.isFinite(y) ? y : 0 } : null;
+  };
 
   useEffect(() => {
     const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    let timer: ReturnType<typeof setTimeout>;
-    let arrive: ReturnType<typeof setTimeout>;
+    let loop: ReturnType<typeof setTimeout>;
+    let steps: ReturnType<typeof setTimeout>[] = [];
+    let goal: Spot | null = null;
+    let wandering = false;
     let restUntil = 0;
+    let shown = false;
 
+    /** Walk to a spot: first straight across, then straight up or down. Returns the time it takes. */
     const walk = (to: Spot) => {
-      const from = at.current!;
+      steps.forEach(clearTimeout);
+      steps = [];
+      const from = now() ?? to;
+      const legs: Omit<View, "ms" | "shown">[] = [];
       const dx = to.x - from.x;
-      const dist = Math.hypot(dx, to.y - from.y);
-      const ms = still ? 0 : Math.max(200, dist / SPEED);
-      const heading: Face = Math.abs(dx) > 2 ? (dx > 0 ? 1 : -1) : from.face;
-      at.current = to;
-      setView({ ...to, face: heading, ms, walking: ms > 0, shown: true });
-      clearTimeout(arrive);
-      arrive = setTimeout(() => setView((v) => v && { ...v, walking: false, face: to.face, ms: 0 }), ms);
-      return ms;
+      const dy = to.y - from.y;
+      if (Math.abs(dx) > 2) {
+        face.current = dx > 0 ? 1 : -1;
+        legs.push({ x: to.x, y: from.y, scale: to.scale, pose: "side", face: face.current });
+      }
+      if (Math.abs(dy) > 2) legs.push({ x: to.x, y: to.y, scale: to.scale, pose: dy > 0 ? "front" : "side", face: face.current });
+
+      let delay = 0;
+      let at = from;
+      for (const leg of legs) {
+        const ms = still ? 0 : (Math.hypot(leg.x - at.x, leg.y - at.y) / SPEED) * 1000;
+        steps.push(setTimeout(() => setView({ ...leg, ms, shown: true }), delay));
+        delay += ms;
+        at = leg;
+      }
+      steps.push(setTimeout(() => setView((v) => v && { ...v, pose: "sit", ms: 0, scale: to.scale }), delay));
+      return delay;
     };
 
     const tick = () => {
       const t = target(roam);
       if (t === null) {
-        at.current = null;
-        setView((v) => v && { ...v, shown: false, walking: false });
-      } else if (at.current === null) {
-        // appear in place, then carry on
+        if (shown) {
+          steps.forEach(clearTimeout);
+          setView((v) => v && { ...v, shown: false, pose: "sit", ms: 0 });
+        }
+        shown = false;
+        goal = null;
+      } else if (!shown) {
         const spot = t === "wander" ? randomSpot() : t;
-        at.current = spot;
-        restUntil = Date.now() + 1500;
-        setView({ ...spot, ms: 0, walking: false, shown: true });
+        shown = true;
+        goal = spot;
+        wandering = t === "wander";
+        restUntil = Date.now() + 2500;
+        setView({ ...spot, pose: "sit", face: face.current, ms: 0, shown: true });
       } else if (t === "wander") {
-        if (Date.now() >= restUntil) restUntil = Date.now() + walk(randomSpot()) + 2000 + Math.random() * 4000;
-      } else if (Math.hypot(t.x - at.current.x, t.y - at.current.y) > 3) {
-        restUntil = 0;
+        if (!wandering || Date.now() >= restUntil) {
+          wandering = true;
+          goal = randomSpot();
+          restUntil = Date.now() + walk(goal) + REST[0] + Math.random() * (REST[1] - REST[0]);
+        }
+      } else if (wandering || !goal || far(goal, t)) {
+        wandering = false;
+        goal = t;
         walk(t);
       }
-      timer = setTimeout(tick, 500);
+      loop = setTimeout(tick, 600);
     };
 
     tick();
     return () => {
-      clearTimeout(timer);
-      clearTimeout(arrive);
+      clearTimeout(loop);
+      steps.forEach(clearTimeout);
     };
   }, [roam]);
+
+  // a faint sparkle trail while walking
+  const walking = !!view && view.shown && view.pose !== "sit";
+  useEffect(() => {
+    if (!walking || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const add = setInterval(() => {
+      const p = now();
+      if (!p) return;
+      const id = Date.now() + Math.random();
+      setSparkles((s) => [...s.slice(-8), { id, x: p.x + (Math.random() - 0.5) * 30, y: p.y - 4 - Math.random() * 14 }]);
+      setTimeout(() => setSparkles((s) => s.filter((k) => k.id !== id)), 2200);
+    }, 520);
+    return () => clearInterval(add);
+  }, [walking]);
 
   useEffect(() => {
     if (!petted) return;
@@ -110,89 +172,50 @@ export function Pet() {
   }, [petted]);
 
   if (!view) return null;
-  return (
-    <div
-      className={`pet ${view.walking ? "pet-walking" : ""} ${petted ? "pet-petted" : ""}`}
-      style={{
-        translate: `${view.x}px ${view.y}px`,
-        transitionDuration: `${view.ms}ms, 300ms`,
-        opacity: view.shown ? 1 : 0,
-      }}
-      aria-hidden
-    >
-      {petted > 0 && (
-        <span key={petted} className="pet-heart">
-          ♥
-        </span>
-      )}
-      <svg
-        width={W}
-        height={H}
-        viewBox="0 0 64 48"
-        className={view.face === -1 ? "pet-flip" : ""}
-        onClick={() => setPetted(Date.now())}
-      >
-        <title>Hachi</title>
-        {view.walking ? <Standing /> : <Sitting />}
-      </svg>
-    </div>
-  );
-}
-
-const FUR = "#d99a3e";
-const SHADE = "#b77a2a";
-const LIGHT = "#f2cd85";
-const DARK = "#2b1d12";
-const COLLAR = "#2f5bea";
-
-function Head({ x, y }: { x: number; y: number }) {
-  // head centred at (x, y), facing right
+  const [w, h, feet] = BOX[view.pose];
   return (
     <>
-      <circle cx={x} cy={y} r="8" fill={FUR} />
-      <ellipse cx={x + 7} cy={y + 3} rx="5.5" ry="3.6" fill={LIGHT} />
-      <ellipse cx={x + 12} cy={y + 1.8} rx="1.7" ry="1.4" fill={DARK} />
-      <path d={`M${x + 8} ${y + 5.5}q2 1 3.5 0`} stroke={DARK} strokeWidth=".8" fill="none" strokeLinecap="round" />
-      <circle className="pet-eye" cx={x + 3} cy={y - 2.5} r="1.3" fill={DARK} />
-      <ellipse cx={x - 4} cy={y + 2} rx="3.6" ry="6.5" fill={SHADE} transform={`rotate(18 ${x - 4} ${y + 2})`} />
-      <path d={`M${x - 8.5} ${y + 4}q3.5 5 7 2.5`} stroke={COLLAR} strokeWidth="2.2" fill="none" strokeLinecap="round" />
-      <circle cx={x - 4} cy={y + 8.5} r="1.3" fill="#ffd166" />
+      {sparkles.map((s) => (
+        <span key={s.id} className="pet-sparkle" style={{ left: s.x, top: s.y }} aria-hidden>
+          ✦
+        </span>
+      ))}
+      <div
+        ref={box}
+        className={`pet ${petted ? "pet-petted" : ""}`}
+        style={{
+          translate: `${view.x}px ${view.y}px`,
+          transitionDuration: `${view.ms}ms, 400ms`,
+          opacity: view.shown ? 1 : 0,
+        }}
+        aria-hidden
+      >
+        <div className="pet-body" style={{ scale: String(view.scale) }}>
+          {petted > 0 && (
+            <span key={petted} className="pet-heart">
+              ♥
+            </span>
+          )}
+          {/* eslint-disable-next-line @next/next/no-img-element -- tiny animated SVGs; next/image would strip the animation */}
+          <img
+            src={SRC[view.pose]}
+            alt="Hachi"
+            title="Hachi"
+            width={w}
+            height={h}
+            draggable={false}
+            onClick={() => setPetted(Date.now())}
+            style={{ left: -w / 2, top: -h * feet, scale: view.face === -1 && view.pose === "side" ? "-1 1" : undefined }}
+          />
+        </div>
+      </div>
+      {/* load every pose up front so switching never flickers */}
+      <div hidden>
+        {Object.values(SRC).map((s) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img key={s} src={s} alt="" />
+        ))}
+      </div>
     </>
-  );
-}
-
-function Standing() {
-  const leg = (x: number, fill: string, cls: string) => (
-    <rect className={cls} x={x} y="29" width="5" height="16" rx="2.5" fill={fill} />
-  );
-  return (
-    <g>
-      <path className="pet-tail" style={{ transformOrigin: "15px 24px" }} d="M15 24C9 22 6 17 4 13" stroke={SHADE} strokeWidth="4.5" fill="none" strokeLinecap="round" />
-      {leg(16, SHADE, "pet-leg-a")}
-      {leg(39, SHADE, "pet-leg-b")}
-      <ellipse cx="30" cy="26" rx="17" ry="9" fill={FUR} />
-      <path d="M18 31q12 6 24 0" stroke={LIGHT} strokeWidth="3" fill="none" strokeLinecap="round" />
-      {leg(21, FUR, "pet-leg-b")}
-      {leg(44, FUR, "pet-leg-a")}
-      <ellipse cx="44" cy="21" rx="7" ry="9.5" fill={FUR} />
-      <ellipse cx="47" cy="25" rx="3.5" ry="5" fill={LIGHT} />
-      <Head x={50} y={13} />
-    </g>
-  );
-}
-
-function Sitting() {
-  return (
-    <g>
-      <path className="pet-tail" style={{ transformOrigin: "16px 43px" }} d="M16 43C10 44 6 42 4 38" stroke={SHADE} strokeWidth="4.5" fill="none" strokeLinecap="round" />
-      <ellipse cx="25" cy="37" rx="11" ry="8.5" fill={FUR} />
-      <rect x="37" y="30" width="4.5" height="16" rx="2.2" fill={SHADE} />
-      <ellipse cx="35" cy="27" rx="8.5" ry="13" fill={FUR} transform="rotate(28 35 27)" />
-      <ellipse cx="41" cy="26" rx="3.5" ry="7" fill={LIGHT} transform="rotate(20 41 26)" />
-      <ellipse cx="31" cy="45" rx="5.5" ry="2.2" fill={SHADE} />
-      <rect x="41.5" y="30" width="4.5" height="16" rx="2.2" fill={FUR} />
-      <Head x={43} y={11} />
-      <ellipse cx="51" cy="18.6" rx="1.4" ry="2" fill="#f07f8f" />
-    </g>
   );
 }
