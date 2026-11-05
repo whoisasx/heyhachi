@@ -106,7 +106,20 @@ export function AccountsView() {
             What the assistant can use on your behalf. Values are encrypted and never shown,
             not even here.
           </p>
-          {error && <p className="mt-3 text-sm text-danger">{error}</p>}
+          {error && (
+            <p className="mt-3 text-sm text-danger">
+              {error}{" "}
+              <button
+                className="underline"
+                onClick={() => {
+                  setError(null);
+                  void load();
+                }}
+              >
+                Try again
+              </button>
+            </p>
+          )}
         </section>
 
         <section className="space-y-3">

@@ -53,6 +53,7 @@ export function TaskView({
 
   useEffect(() => {
     let sawLive = false;
+    const resumed = lastSeq.current > 0; // reconnecting after Resume: the end must refresh the chat
     const stop = streamTask(taskId, lastSeq.current, (event) => {
       lastSeq.current = Math.max(lastSeq.current, event.seq);
       // Ignore duplicates (reconnects can overlap).
@@ -60,7 +61,7 @@ export function TaskView({
       if (event.type === "status") {
         const status = event.data.status as TaskStatus;
         if (!TERMINAL.includes(status)) sawLive = true;
-        else if (sawLive) finished.current(); // it finished while we watched
+        else if (sawLive || resumed) finished.current(); // it finished while we watched
       }
     });
     return stop;

@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 import { ApiError, api, post, type ConversationDetail, type TaskStatus } from "@/lib/api";
 import { TaskView } from "./TaskView";
@@ -19,6 +21,7 @@ export function ChatApp({ initialId }: { initialId: string | null }) {
   const [detail, setDetail] = useState<ConversationDetail | null>(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [pending, setPending] = useState<string | null>(null); // shown right away while sending
   const [error, setError] = useState<{ text: string; secret?: boolean } | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
 
@@ -59,12 +62,23 @@ export function ChatApp({ initialId }: { initialId: string | null }) {
     detail?.tasks.find((t) => t.id === taskId)?.status ?? "queued";
   const busy = detail?.tasks.some((t) => !["done", "failed", "cancelled"].includes(t.status));
 
+  // Fallback for a dropped live stream: refresh while a task is running.
+  useEffect(() => {
+    if (!busy || !activeId) return;
+    const id = setInterval(() => {
+      void loadDetail(activeId).catch(() => {});
+    }, 5000);
+    return () => clearInterval(id);
+  }, [busy, activeId, loadDetail]);
+
   async function send(e: { preventDefault(): void }) {
     e.preventDefault();
     const content = draft.trim();
     if (!content || sending) return;
     setSending(true);
     setError(null);
+    setPending(content);
+    setDraft("");
     try {
       let id = activeId;
       if (!id) {
@@ -75,15 +89,16 @@ export function ChatApp({ initialId }: { initialId: string | null }) {
         content,
         client_message_id: crypto.randomUUID(),
       });
-      setDraft("");
       await Promise.all([loadDetail(id), loadList()]);
     } catch (err) {
+      setDraft(content); // give the text back so nothing is lost
       if (err instanceof ApiError && err.code === "secret_in_message") {
         setError({ text: err.message, secret: true });
       } else {
         setError({ text: err instanceof Error ? err.message : "Couldn't send." });
       }
     } finally {
+      setPending(null);
       setSending(false);
     }
   }
@@ -116,7 +131,7 @@ export function ChatApp({ initialId }: { initialId: string | null }) {
       <main className="flex min-w-0 flex-1 flex-col">
         <div className="flex-1 overflow-y-auto">
           <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-6">
-            {!detail?.messages.length && (
+            {!detail?.messages.length && !pending && (
               <div className="mt-16 text-center text-muted">
                 <p className="text-lg font-medium text-foreground">What should I do?</p>
                 <p className="mt-2 text-sm">
@@ -141,6 +156,12 @@ export function ChatApp({ initialId }: { initialId: string | null }) {
                 )}
               </div>
             ))}
+            {pending && (
+              <div className="flex flex-col gap-3">
+                <Bubble role="user" text={pending} pending />
+                <p className="ml-2 text-sm text-muted">Sending…</p>
+              </div>
+            )}
             <div ref={bottom} />
           </div>
         </div>
@@ -150,6 +171,19 @@ export function ChatApp({ initialId }: { initialId: string | null }) {
             {error && (
               <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-danger dark:bg-red-950">
                 {error.text}
+                {!error.secret && (
+                  <button
+                    type="button"
+                    className="ml-2 underline"
+                    onClick={() => {
+                      setError(null);
+                      void loadList().catch(() => setError({ text: "Couldn't reach the server." }));
+                      if (activeId) void loadDetail(activeId).catch(() => {});
+                    }}
+                  >
+                    Try again
+                  </button>
+                )}
                 {error.secret && (
                   <>
                     {" "}
@@ -185,16 +219,31 @@ export function ChatApp({ initialId }: { initialId: string | null }) {
   );
 }
 
-function Bubble({ role, text }: { role: string; text: string }) {
+function Bubble({ role, text, pending }: { role: string; text: string; pending?: boolean }) {
   const mine = role === "user";
   return (
     <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
       <div
-        className={`max-w-[85%] whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-          mine ? "bg-accent text-white" : "border border-border bg-surface"
-        }`}
+        className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+          mine ? "whitespace-pre-wrap bg-accent text-white" : "prose-reply border border-border bg-surface"
+        } ${pending ? "opacity-60" : ""}`}
       >
-        {text}
+        {mine ? (
+          text
+        ) : (
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              a: ({ href, children }) => (
+                <a href={href} target="_blank" rel="noopener noreferrer nofollow">
+                  {children}
+                </a>
+              ),
+            }}
+          >
+            {text}
+          </ReactMarkdown>
+        )}
       </div>
     </div>
   );

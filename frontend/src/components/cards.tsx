@@ -48,24 +48,21 @@ export function CardView({ taskId, seq, card }: { taskId: string; seq: number; c
       {card.kind === "otp" && <OtpForm busy={busy} onCode={(code) => input("otp", { secret: code })} />}
 
       {card.kind === "connect" && (
-        <div className="space-y-2">
-          {card.live_view_url ? (
-            <iframe
-              src={card.live_view_url}
-              title="Log in"
-              className="aspect-video w-full rounded-lg border border-border"
-              sandbox="allow-scripts allow-same-origin allow-forms"
-            />
-          ) : (
-            <p className="rounded-lg bg-accent-soft px-3 py-2 text-xs">
-              A browser window opened on the computer running the agent. Log in to {card.site}{" "}
-              there, then come back and click Done. Your password stays in that window.
-            </p>
-          )}
-          <button className="btn-primary" disabled={busy} onClick={() => input("credential_ready", { data: {} })}>
-            Done, I&apos;m logged in
-          </button>
-        </div>
+        <ConnectChoice
+          card={card}
+          busy={busy}
+          onLoggedIn={() => input("credential_ready", { data: {} })}
+          onDetails={(secret) =>
+            submit(() =>
+              post("/vault/credentials", {
+                site: card.site,
+                kind: "password",
+                secret,
+                for_task: { task_id: taskId, card_seq: seq },
+              }),
+            )
+          }
+        />
       )}
 
       {card.kind === "secure_input" && (
@@ -86,6 +83,67 @@ export function CardView({ taskId, seq, card }: { taskId: string; seq: number; c
       )}
 
       {error && <p className="text-danger">{error}</p>}
+    </div>
+  );
+}
+
+/** Two ways to connect: log in yourself in the live browser, or give login details. */
+function ConnectChoice({
+  card,
+  busy,
+  onLoggedIn,
+  onDetails,
+}: {
+  card: Card;
+  busy: boolean;
+  onLoggedIn: () => void;
+  onDetails: (secret: Record<string, string>) => void;
+}) {
+  const [mode, setMode] = useState<"self" | "details">("self");
+  const tab = (m: typeof mode, label: string) => (
+    <button
+      type="button"
+      className={`rounded-md px-3 py-1 text-xs ${mode === m ? "bg-accent-soft text-accent" : "text-muted"}`}
+      onClick={() => setMode(m)}
+    >
+      {label}
+    </button>
+  );
+  return (
+    <div className="space-y-2">
+      {!!card.fields?.length && (
+        <div className="flex gap-1">
+          {tab("self", "Log in myself")}
+          {tab("details", "Give my login details")}
+        </div>
+      )}
+      {mode === "self" ? (
+        <>
+          {card.live_view_url ? (
+            <iframe
+              src={card.live_view_url}
+              title="Log in"
+              className="aspect-video w-full rounded-lg border border-border"
+              sandbox="allow-scripts allow-same-origin allow-forms"
+            />
+          ) : (
+            <p className="rounded-lg bg-accent-soft px-3 py-2 text-xs">
+              A browser window opened on the computer running the agent. Log in to {card.site}{" "}
+              there, then come back and click Done. Your password stays in that window.
+            </p>
+          )}
+          <button className="btn-primary" disabled={busy} onClick={onLoggedIn}>
+            Done, I&apos;m logged in
+          </button>
+        </>
+      ) : (
+        <>
+          <p className="text-xs text-muted">
+            I&apos;ll log in for you. If {card.site} texts or emails you a code, I&apos;ll ask for it here.
+          </p>
+          <SecureForm fields={card.fields ?? []} busy={busy} onSave={onDetails} submitLabel="Save and log in" />
+        </>
+      )}
     </div>
   );
 }
@@ -157,7 +215,7 @@ export function SecureForm({
   submitLabel?: string;
 }) {
   const [values, setValues] = useState<Record<string, string>>({});
-  const complete = fields.every((f) => values[f.name]?.trim());
+  const complete = fields.every((f) => f.optional || values[f.name]?.trim());
   return (
     <form
       className="space-y-2"

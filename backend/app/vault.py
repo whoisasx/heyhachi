@@ -24,6 +24,11 @@ SECRET_FIELDS: dict[str, tuple[str, ...]] = {
 }
 
 
+# Fields that may be left empty: some sites log in with a phone number and an
+# SMS code, no password.
+OPTIONAL_FIELDS: dict[str, tuple[str, ...]] = {"password": ("password",)}
+
+
 class InvalidSecret(ValueError):
     """Bad secret shape. The message never contains the value."""
 
@@ -44,6 +49,8 @@ def clean_secret(kind: str, secret: dict[str, Any]) -> dict[str, str]:
     out: dict[str, str] = {}
     for field in SECRET_FIELDS[kind]:
         value = secret.get(field)
+        if field in OPTIONAL_FIELDS.get(kind, ()) and (value is None or value == ""):
+            continue
         if not isinstance(value, str) or not value.strip():
             raise InvalidSecret(f"`{field}` is required for {kind}")
         out[field] = value.strip()
@@ -230,7 +237,8 @@ class CredentialStore:
                 value = self.vault.open(row, user_id=user_id, site=site, kind=row.kind)
                 fields = SECRET_FIELDS[row.kind]
                 for name, field in zip(names[row.kind], fields, strict=False):
-                    out[name] = value[field]
+                    if value.get(field):  # optional fields may be missing
+                        out[name] = value[field]
                 row.last_used_at = func.now()
                 db.add(audit(user_id, "credential_used", site, row.kind, row.id, task_id))
             await db.commit()

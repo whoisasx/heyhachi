@@ -162,12 +162,16 @@ class TaskContext:
             raise TaskFailed("cost_limit", "This task hit its spending limit.", retryable=True)
         return float(total)
 
-    async def history(self, limit: int = 20) -> list[dict[str, str]]:
-        """Earlier chat turns in this conversation (oldest first), excluding this task's."""
+    async def history(self, limit: int = 20) -> list[dict[str, Any]]:
+        """Earlier chat turns in this conversation (oldest first), excluding this task's.
+
+        Assistant replies carry their task's checkpoint (`checkpoint`), so the
+        orchestrator can note which tools produced them.
+        """
         async with self._runner.session_factory() as session:
             rows = (
                 await session.execute(
-                    select(Message.role, Message.content)
+                    select(Message.role, Message.content, Message.task_id)
                     .where(
                         Message.conversation_id == self.conversation_id,
                         (Message.task_id != self.task_id) | Message.task_id.is_(None),
@@ -176,7 +180,23 @@ class TaskContext:
                     .limit(limit)
                 )
             ).all()
-        return [{"role": r.role, "content": r.content} for r in reversed(rows)]
+            task_ids = {r.task_id for r in rows if r.role == "assistant" and r.task_id}
+            checkpoints: dict[uuid.UUID, Any] = {}
+            if task_ids:
+                checkpoints = dict(
+                    (
+                        await session.execute(
+                            select(Task.id, Task.checkpoint).where(Task.id.in_(task_ids))
+                        )
+                    ).all()
+                )
+        out: list[dict[str, Any]] = []
+        for r in reversed(rows):
+            turn: dict[str, Any] = {"role": r.role, "content": r.content}
+            if r.role == "assistant" and checkpoints.get(r.task_id):
+                turn["checkpoint"] = checkpoints[r.task_id]
+            out.append(turn)
+        return out
 
     async def connected_accounts(self) -> list[dict[str, Any]]:
         """Metadata of the user's stored access (never values)."""

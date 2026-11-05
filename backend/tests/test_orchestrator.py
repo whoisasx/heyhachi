@@ -217,3 +217,68 @@ async def test_resume_reruns_pending_tool_calls_then_continues():
     assert "github.com" in sent[2]["content"][0]["content"]
     assert ctx.reply == "You have GitHub connected."
     assert ctx.saved[-1]["orchestrator_steps"] == 2
+
+
+async def test_follow_up_sees_what_earlier_replies_were_based_on(make_client):
+    """Earlier replies come with a note of the tools behind them (no false 'corrections')."""
+    import uuid as _uuid
+
+    from tests.test_browser import RecordingBrowser
+
+    llm = ScriptedLLM(
+        call("ask_user", {"question": "Which repo?", "choices": ["a/a", "b/b"]}),
+        call(
+            "run_browser_task",
+            {"site": "github.com", "instruction": "Read the star count of b/b"},
+            tool_id="t2",
+        ),
+        say("b/b has about 99k stars."),
+        say("Sure."),
+    )
+    client = await make_client(executor=Orchestrator(llm, RecordingBrowser(), make_settings()))
+    conv_id, task_id = await start_task(client, "stars of a/a or b/b? ask me first")
+    task = await wait_for_status(client, task_id, "waiting_user")
+    await client.post(
+        f"/tasks/{task_id}/input",
+        json={
+            "card_seq": task["waiting_for"]["card_seq"],
+            "kind": "answer",
+            "data": {"text": "b/b"},
+        },
+    )
+    await wait_for_status(client, task_id, "done")
+
+    resp = await client.post(
+        f"/conversations/{conv_id}/messages",
+        json={"content": "thanks, now list its issues", "client_message_id": str(_uuid.uuid4())},
+    )
+    await wait_for_status(client, resp.json()["task"]["id"], "done")
+
+    first_call_of_follow_up = llm.calls[-1]
+    earlier_reply = first_call_of_follow_up[-2]
+    assert earlier_reply["role"] == "assistant"
+    assert earlier_reply["content"].endswith("b/b has about 99k stars.")
+    assert '- asked "Which repo?"; user answered "b/b"' in earlier_reply["content"]
+    assert (
+        "- browsed github.com: Read the star count of b/b (succeeded)" in earlier_reply["content"]
+    )
+
+
+async def test_ai_usage_limit_is_a_clear_error(make_client):
+    import anthropic
+    import httpx
+
+    class LimitedLLM(ScriptedLLM):
+        async def create(self, *, system, messages, tools):
+            request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+            raise anthropic.BadRequestError(
+                "You have reached your specified API usage limits.",
+                response=httpx.Response(400, request=request),
+                body=None,
+            )
+
+    client = await make_client(executor=Orchestrator(LimitedLLM(), None, make_settings()))
+    _, task_id = await start_task(client, "anything")
+    task = await wait_for_status(client, task_id, "failed")
+    assert task["error"]["code"] == "upstream_limit"
+    assert "usage limit" in task["error"]["message"]

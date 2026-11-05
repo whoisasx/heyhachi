@@ -4,7 +4,7 @@ A short note on how the assistant handles the user's access to websites, why, an
 
 ## Choices
 
-**Ask for the least access that works.** The assistant prefers a login the user does themselves in a live browser view: we keep only the resulting cookies, never the password. Passwords, authenticator (TOTP) setup keys, API keys and cards are stored only when the user chooses to give them.
+**Ask for the least access that works.** The Connect card offers two ways: log in yourself in a live browser view (we keep only the resulting cookies, never the password), or give login details (phone number or email, password optional) so the browser logs in and asks for any SMS/email code on a card. Passwords, authenticator (TOTP) setup keys, API keys and cards are stored only when the user chooses to give them.
 
 **Secrets never go through chat or the model.** They're typed into secure forms that post straight to the vault, never into chat history. The browser model sees placeholder names (`github.com_password`); browser-use swaps in the real value as it types, and generates TOTP codes itself. SMS codes are encrypted when they arrive, decrypted only inside the task runner, and deleted once used. Secrets pasted into chat are blocked and logged (without the value).
 

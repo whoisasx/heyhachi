@@ -326,6 +326,10 @@ class BrowserUseAgent:
                 await ctx.add_cost(browser_cost_usd(usage, model))
         finally:
             await opened.__aexit__(None, None, None)  # closes (and stops) the browser
+            if handle.live_view_url:
+                # The browser is gone: tell the chat to hide its live view.
+                with contextlib.suppress(Exception):
+                    await ctx.emit("live_view", {"url": None, "site": site})
 
         if logged_out:
             if saved is not None:

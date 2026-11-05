@@ -378,6 +378,7 @@ Found in `tasks.error.code` and `error` events.
 | `site_blocked` | Bot detection, CAPTCHA, or region block | No |
 | `verification_failed` | Couldn't confirm the result happened | Yes |
 | `upstream_unavailable` | Claude or Browser Use unavailable | Yes |
+| `upstream_limit` | The AI service's usage limit was reached | Yes, once raised |
 | `internal_error` | Bug | Yes |
 
 ---

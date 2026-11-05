@@ -42,15 +42,14 @@ Status: **first live run on 2026-11-05** (results below). Automated coverage of 
 | 14 | Pass | The Swiggy run stopped with "This task hit its spending limit"; only Start over offered. |
 | 15 | Pass | Reload mid-task: steps replayed without gaps or duplicates; live updates and the final reply continued. |
 
-### Found during the run, to fix
+### Found during the run (fixed the same day unless noted)
 
-- Connect card should offer both "Log in myself" and "give my phone number" (agent logs in, SMS code via card), not only live-view login.
-- After **Resume**, the final reply only appeared after a page reload.
-- Upstream errors (e.g. Anthropic usage limit) show as "Something went wrong"; they should say what happened and not offer Resume until it's fixed.
-- Replies show raw `**` (no Markdown rendering).
-- No feedback for a few seconds after Send.
-- A finished browser's live view box stays, showing "Waiting for the browser connection…".
-- Connected accounts page stuck on "Loading…" after one network error (no retry or message).
-- Follow-up tasks wrongly "correct" earlier answers ("I didn't read that from the page") and repeat old questions: the history passed to a new task has the replies but no record of the tool calls behind them.
-- The browser pane sometimes stalled requests to the app (`/api/backend-token` pending, `ERR_CONNECTION_RESET`); a new tab fixed it. Likely the pane, but the app should time out and show an error instead of an empty page.
-- Swiggy runs are long (30+ steps): menu navigation is slow; the $1 task limit is tight for food ordering.
+- Connect card now offers both "Log in myself" (live view) and "Give my login details" (phone/email, optional password; the browser logs in and asks for codes on a card).
+- After **Resume**, the chat now refreshes when the task ends; it also polls every 5 s while a task runs, in case the live stream drops.
+- AI usage-limit and API-key errors now say so (`upstream_limit`) instead of "Something went wrong".
+- Replies render Markdown (bold, lists, tables, links open in a new tab).
+- Send shows the message right away with "Sending…".
+- A browser's live view hides once that browser closes.
+- Requests time out after 20 s with an error and a "Try again" button (chat and Connected accounts) instead of loading forever.
+- Follow-up tasks get a short note of the tools behind earlier replies, so they no longer falsely "correct" checked answers or re-ask answered questions.
+- Not fixed: Swiggy runs are long (30+ steps) and can hit the $1 task limit.

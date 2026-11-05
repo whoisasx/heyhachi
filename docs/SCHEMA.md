@@ -332,7 +332,7 @@ One key per irreversible action. `started_at` without `done_at` after a crash me
 |---|---|---|
 | `status` | `{"status": "running"}` | Subtle state indicator |
 | `progress` | `{"text": "Opening Swiggy"}` | One progress line |
-| `live_view` | `{"url": "...", "expires_at": "..."}` | Embedded browser view |
+| `live_view` | `{"url": "...", "site": "..."}` | Embedded browser view; `url: null` when that browser closed (hide it) |
 | `card` | `{"kind": "otp" \| "confirm" \| "connect" \| "secure_input" \| "question", "site": "...", "title": "...", "body": "...", "fields": [...]}` | Interactive card |
 | `card_resolved` | `{"card_seq": 7, "outcome": "submitted" \| "expired" \| "cancelled"}` | Card greys out |
 | `reply` | `{"text": "Order placed, arriving in 35 min", "message_id": "..."}` | Final assistant message |

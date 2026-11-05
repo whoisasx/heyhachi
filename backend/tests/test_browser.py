@@ -15,7 +15,13 @@ from app.browser_sessions import SessionStore, normalize_site
 from app.crypto import Vault, VaultKeyError, load_master_key
 from app.executors.browser import browser_cost_usd
 from app.executors.orchestrator import Orchestrator
-from tests.conftest import TEST_VAULT_KEY, make_settings, start_task, wait_for_status
+from tests.conftest import (
+    TEST_VAULT_KEY,
+    make_settings,
+    read_events,
+    start_task,
+    wait_for_status,
+)
 from tests.test_orchestrator import ScriptedLLM, call, last_tool_result, say
 
 VAULT = Vault(load_master_key(TEST_VAULT_KEY))
@@ -163,3 +169,48 @@ async def test_browser_login_opens_live_login_and_saves(make_client):
     assert browser.saved
     assert browser.runs == [("github.com", "Star x")]
     assert json.loads(last_tool_result(llm)["content"]) == {"ok": True, "summary": "Starred."}
+
+
+async def test_connect_card_also_accepts_login_details(make_client, db):
+    """Instead of logging in themselves, the user gives a phone number (no password)."""
+    from app.crypto import Vault, load_master_key
+    from app.vault import CredentialStore
+
+    browser = RecordingBrowser()
+    llm = ScriptedLLM(
+        call(
+            "request_access", {"site": "swiggy.com", "kind": "browser_login", "reason": "Reorder"}
+        ),
+        say("Logging in with your number."),
+    )
+    client = await make_client(executor=Orchestrator(llm, browser, make_settings()))
+    _, task_id = await start_task(client, "reorder")
+    task = await wait_for_status(client, task_id, "waiting_user")
+    card = task["waiting_for"]
+
+    resp = await client.post(
+        "/vault/credentials",
+        json={
+            "site": "swiggy.com",
+            "kind": "password",
+            "secret": {"username": "+91 98765 43210"},
+            "for_task": {"task_id": task_id, "card_seq": card["card_seq"]},
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    await wait_for_status(client, task_id, "done")
+
+    events = await read_events(client, task_id)
+    [shown] = [e["data"] for e in events if e["event"] == "card"]
+    assert shown["kind"] == "connect"
+    assert [f["name"] for f in shown["fields"]] == ["username", "password"]
+    assert not browser.saved  # the live browser's (logged-out) cookies aren't kept
+    result = json.loads(last_tool_result(llm)["content"])
+    assert result["connected"] is True and "login details" in result["note"]
+
+    store = CredentialStore(
+        client.app.state.session_factory, Vault(load_master_key(TEST_VAULT_KEY))
+    )
+    user_id = uuid.UUID((await client.get("/me")).json()["id"])
+    secrets = await store.browser_secrets(user_id, "swiggy.com")
+    assert secrets == {"swiggy.com_username": "+91 98765 43210"}  # no password placeholder

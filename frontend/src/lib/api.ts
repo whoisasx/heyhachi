@@ -13,7 +13,7 @@ let inflight: Promise<string> | null = null;
 /** Backend token from our own Next.js route, refreshed a minute before it expires. */
 export async function getToken(): Promise<string> {
   if (cached && cached.expiresAt - Date.now() > 60_000) return cached.token;
-  inflight ??= fetch("/api/backend-token", { cache: "no-store" })
+  inflight ??= fetch("/api/backend-token", { cache: "no-store", signal: AbortSignal.timeout(15_000) })
     .then(async (res) => {
       if (!res.ok) throw new ApiError(res.status, "unauthenticated", "Please sign in again.");
       const body = await res.json();
@@ -38,8 +38,12 @@ export class ApiError extends Error {
   }
 }
 
+/** Requests that hang (flaky networks) fail after this instead of spinning forever. */
+const REQUEST_TIMEOUT_MS = 20_000;
+
 export async function api<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(`${API}${path}`, {
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     ...init,
     headers: {
       Authorization: `Bearer ${await getToken()}`,
@@ -104,6 +108,7 @@ export interface Field {
   type: string;
   label?: string;
   length?: number;
+  optional?: boolean;
 }
 
 export interface Card {
