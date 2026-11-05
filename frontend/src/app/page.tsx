@@ -10,10 +10,10 @@ import { MEADOW } from "@/lib/meadow";
 
 export default function Home() {
   return (
-    <main className="relative isolate grid min-h-full flex-1 lg:grid-cols-[1.15fr_1fr]">
+    <main className="relative isolate grid min-h-full flex-1 overflow-hidden lg:grid-cols-[1.15fr_1fr]">
       {/* a calm meadow (Angela Loria on Unsplash, Unsplash License) behind the whole page */}
       {/* eslint-disable-next-line @next/next/no-img-element -- decorative photo straight from Unsplash's CDN */}
-      <img src={MEADOW} alt="" aria-hidden className="demo-scene pointer-events-none absolute inset-0 -z-10 h-full w-full object-cover" />
+      <img src={MEADOW} alt="" aria-hidden className="page-meadow pointer-events-none absolute inset-0 -z-10 h-full w-full object-cover" />
       <section className="hidden lg:block">
         <AgentDemo />
       </section>

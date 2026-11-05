@@ -11,9 +11,6 @@ export function AgentDemo() {
     <div className="demo relative flex h-full flex-col justify-between overflow-hidden p-10 text-white lg:p-14">
       {/* the meadow photo sits behind the whole page (app/page.tsx); this just shades it */}
       <span className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(8,20,30,0.45)_0%,rgba(8,20,30,0)_28%,rgba(8,20,30,0)_52%,rgba(6,16,12,0.82)_100%)]" aria-hidden />
-      {[12, 28, 46, 63, 78, 90].map((left, i) => (
-        <span key={left} className="demo-pollen" style={{ left: `${left}%`, animationDelay: `${-i * 2.3}s` }} aria-hidden />
-      ))}
 
       <span className="display relative inline-flex items-center gap-2 text-lg tracking-tight text-white/90">
         <Paw size={18} className="text-[#ffd98a]" />

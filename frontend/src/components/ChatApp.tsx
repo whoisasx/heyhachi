@@ -8,9 +8,8 @@ import remarkGfm from "remark-gfm";
 
 import { ApiError, cachedChat, loadChat, post, type ConversationDetail, type TaskStatus } from "@/lib/api";
 import { CHAT_RENAMED, refreshChats, useUser } from "./Sidebar";
-import { ChatScene, GlassFill, SceneSwitcher } from "./ChatScene";
+import { BoxMeadow, ChatMeadow } from "./ChatScene";
 import { Paw } from "./Logo";
-import { useScene } from "@/lib/scene";
 import { TaskView } from "./TaskView";
 
 const EXAMPLES = [
@@ -46,7 +45,6 @@ export function ChatApp() {
   const activeId = useSearchParams().get("c");
   const { name } = useUser();
   const [loaded, setLoaded] = useState<ConversationDetail | null>(null);
-  const scene = useScene();
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<{ text: string; secret?: boolean } | null>(null);
@@ -178,8 +176,8 @@ export function ChatApp() {
               )}
             </p>
           )}
-          <div data-pet="composer" className={`relative isolate overflow-hidden rounded-2xl border border-border p-3 ${scene === "off" ? "bg-surface" : "bg-surface/75 backdrop-blur-md"} shadow-[0_6px_24px_rgba(0,0,0,0.05)] focus-within:border-foreground/40`}>
-            {scene === "glass" && <GlassFill />}
+          <div data-pet="composer" className={`relative isolate overflow-hidden rounded-2xl border border-border p-3 bg-surface/85 backdrop-blur-md shadow-[0_6px_24px_rgba(0,0,0,0.05)] focus-within:border-foreground/40`}>
+            <BoxMeadow />
             <textarea
               ref={input}
               className="block max-h-40 min-h-11 w-full resize-none bg-transparent text-sm outline-none placeholder:text-muted"
@@ -224,8 +222,7 @@ export function ChatApp() {
   return (
       <div className="flex min-h-0 flex-1">
         <main className="relative isolate flex min-w-0 flex-1 flex-col">
-          <ChatScene scene={scene} />
-          <SceneSwitcher />
+          <ChatMeadow />
           {activeId && detail && (
             <div className="flex items-center gap-3 border-b border-border px-6 py-3.5">
               <h1 className="display truncate text-[1.1rem] leading-tight">{title ?? "New chat"}</h1>
@@ -248,8 +245,6 @@ export function ChatApp() {
               )}
               {empty && (
                 <div className="relative mt-[10vh] flex flex-col items-center text-center">
-                  {/* soft glow behind the heading, like the sign-in page */}
-                  <span aria-hidden className="home-glow pointer-events-none absolute -top-24 left-1/2 h-72 w-[38rem] max-w-[120%] -translate-x-1/2 rounded-full" />
                   <span className="relative mb-5 inline-flex items-center gap-2 rounded-full border border-border bg-surface/80 px-3 py-1 text-xs text-muted backdrop-blur">
                     <span className="h-1.5 w-1.5 rounded-full bg-ok" />
                     {greeting(name)}
