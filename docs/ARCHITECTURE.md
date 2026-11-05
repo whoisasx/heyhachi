@@ -371,9 +371,9 @@ Workers are a **pool of long-running processes**, each running many tasks — no
 ## 13. Open questions
 
 - [ ] Browser Use Cloud: confirm cookie/localStorage export + import works across fresh browsers (risk spike, PLAN.md step 3).
-- [ ] Browser Use Cloud: proxy country setting for Swiggy (India).
+- [x] Browser Use Cloud: proxy country per site (`BROWSER_PROXY_SITES`, default `swiggy.com:in`).
 - [ ] How the live view embeds (iframe URL, auth, expiry).
-- [ ] OpenRouter: what it supports for video generation; fallback task if not.
+- [x] OpenRouter: free tier is text only (image/video need credit); the demo uses a free text model.
 - [ ] Waiting on the user: keep the coroutine alive with the browser open (current plan) vs. release and resume from checkpoint. Revisit after the spike.
 - [ ] Model for the browser loop (4.3): start on Sonnet, measure cost and success rate.
 

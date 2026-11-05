@@ -45,7 +45,7 @@ npm run dev                   # http://localhost:3000
 
 ## Deploy
 
-- **Backend (Railway):** `cd backend && railway up --service backend`. Builds `backend/Dockerfile` (migrates, then serves; no Chrome: the browser runs in Browser Use Cloud). Run **one replica**: tasks live in the process and are recovered from checkpoints after a restart. Env: `DATABASE_URL`, `BACKEND_JWT_SECRET`, `VAULT_MASTER_KEY`, `ANTHROPIC_API_KEY`, `BROWSER_USE_API_KEY`, `FRONTEND_URL`, `ENVIRONMENT=production`, optional `BROWSER_PROXY_COUNTRY` (e.g. `in`). It refuses to start in production if one is missing.
+- **Backend (Railway):** `cd backend && railway up --service backend`. Builds `backend/Dockerfile` (migrates, then serves; no Chrome: the browser runs in Browser Use Cloud). Run **one replica**: tasks live in the process and are recovered from checkpoints after a restart. Env: `DATABASE_URL`, `BACKEND_JWT_SECRET`, `VAULT_MASTER_KEY`, `ANTHROPIC_API_KEY`, `BROWSER_USE_API_KEY`, `FRONTEND_URL`, `ENVIRONMENT=production`, optional `BROWSER_PROXY_SITES` (default `swiggy.com:in`) and `BROWSER_PROXY_COUNTRY` (all other sites). It refuses to start in production if one is missing.
 - **Frontend (Vercel):** `cd frontend && vercel deploy --prod`. Env: `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `BACKEND_JWT_SECRET` (same as the backend), `NEXT_PUBLIC_BACKEND_URL`. Never set `AUTH_DEV_LOGIN` there.
 - **Google client:** add `https://<frontend>/api/auth/callback/google` as a redirect URI.
 

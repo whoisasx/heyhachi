@@ -62,7 +62,10 @@ class Settings(BaseSettings):
     browser_llm_model: str = "claude-sonnet-5"  # see executors/browser.py: forced tool choice
     # "cloud": Browser Use Cloud (production). Needs BROWSER_USE_API_KEY.
     browser_use_api_key: str | None = None
-    browser_proxy_country: str | None = None  # e.g. "in" for sites that need an Indian IP
+    # Proxy country for sites that need a local IP, as "site:country,...".
+    # Subdomains match too. Other sites use BROWSER_PROXY_COUNTRY (default: none).
+    browser_proxy_sites: str = "swiggy.com:in"
+    browser_proxy_country: str | None = None
     browser_cloud_timeout_minutes: int = 15  # free plan maximum
 
     vault_master_key: str | None = None  # base64 of 32 random bytes
@@ -102,6 +105,16 @@ class Settings(BaseSettings):
         if missing:
             raise ValueError(f"missing in production: {', '.join(missing)}")
         return self
+
+    def proxy_country_for(self, site: str | None) -> str | None:
+        """The proxy country for a site: its own entry, else the default."""
+        host = (site or "").lower().strip(".")
+        for entry in self.browser_proxy_sites.split(","):
+            name, _, country = entry.strip().partition(":")
+            name = name.strip().lower()
+            if name and country.strip() and (host == name or host.endswith("." + name)):
+                return country.strip().lower()
+        return self.browser_proxy_country or None
 
 
 @lru_cache

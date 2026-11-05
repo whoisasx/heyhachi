@@ -6,7 +6,7 @@
   - `LocalLauncher`: Chrome on this machine with a throwaway profile (development;
     the visible window doubles as the live view).
   - `CloudLauncher`: a Browser Use Cloud browser (production), with a live view URL
-    the chat embeds, and an optional proxy country (e.g. "in" for Indian sites).
+    the chat embeds, and a proxy country per site (e.g. "in" for Swiggy).
 - `UnavailableBrowser`: honestly reports that no browser is connected.
 """
 
@@ -143,7 +143,11 @@ class LocalLauncher:
 
     @asynccontextmanager
     async def open(
-        self, storage_state: dict[str, Any] | None, *, visible: bool = False
+        self,
+        storage_state: dict[str, Any] | None,
+        *,
+        site: str | None = None,
+        visible: bool = False,
     ) -> AsyncIterator[OpenBrowser]:
         from browser_use import BrowserProfile, BrowserSession
 
@@ -173,7 +177,11 @@ class CloudLauncher:
 
     @asynccontextmanager
     async def open(
-        self, storage_state: dict[str, Any] | None, *, visible: bool = False
+        self,
+        storage_state: dict[str, Any] | None,
+        *,
+        site: str | None = None,
+        visible: bool = False,
     ) -> AsyncIterator[OpenBrowser]:
         from browser_use import BrowserProfile, BrowserSession
         from browser_use.browser.cloud.cloud import CloudBrowserClient
@@ -181,7 +189,7 @@ class CloudLauncher:
 
         client = CloudBrowserClient()
         request = CreateBrowserRequest(
-            proxy_country_code=self.settings.browser_proxy_country or None,
+            proxy_country_code=self.settings.proxy_country_for(site),
             timeout=self.settings.browser_cloud_timeout_minutes,
         )
         try:
@@ -269,7 +277,7 @@ class BrowserUseAgent:
                 await ctx.progress(f"{site} · step {step}: {goal[:200]}")
 
         try:
-            opened = self.launcher.open(saved)
+            opened = self.launcher.open(saved, site=site)
             handle = await opened.__aenter__()
         except BrowserUnavailable:
             raise TaskFailed(
@@ -339,7 +347,7 @@ class BrowserUseAgent:
         """
         store = self._store(ctx)
         try:
-            opened = self.launcher.open(None, visible=True)
+            opened = self.launcher.open(None, site=site, visible=True)
             handle = await opened.__aenter__()
         except BrowserUnavailable:
             raise TaskFailed(

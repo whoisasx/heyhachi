@@ -66,7 +66,7 @@ class LiveLoginManager:
 
         stack = AsyncExitStack()
         try:
-            handle = await stack.enter_async_context(launcher.open(None, visible=True))
+            handle = await stack.enter_async_context(launcher.open(None, site=site, visible=True))
             await handle.session.navigate_to(f"https://{site}")
         except BrowserUnavailable as exc:
             await stack.aclose()

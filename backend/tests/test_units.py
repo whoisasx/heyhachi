@@ -45,3 +45,19 @@ def test_neon_url_is_converted_for_asyncpg():
 def test_asyncpg_url_is_unchanged():
     url = "postgresql+asyncpg://u:p@localhost:5433/db"
     assert to_asyncpg_url(url) == url
+
+
+def test_proxy_country_is_per_site():
+    from tests.conftest import make_settings
+
+    s = make_settings(browser_proxy_sites="swiggy.com:in, zomato.com:IN")
+    assert s.proxy_country_for("swiggy.com") == "in"
+    assert s.proxy_country_for("www.Swiggy.com") == "in"
+    assert s.proxy_country_for("zomato.com") == "in"
+    assert s.proxy_country_for("github.com") is None
+    assert s.proxy_country_for("notswiggy.com") is None
+    assert s.proxy_country_for(None) is None
+
+    fallback = make_settings(browser_proxy_sites="swiggy.com:in", browser_proxy_country="us")
+    assert fallback.proxy_country_for("github.com") == "us"
+    assert fallback.proxy_country_for("swiggy.com") == "in"

@@ -22,7 +22,7 @@ A short note on how the assistant handles the user's access to websites, why, an
 - **Cookies are long-lived.** A saved session is as powerful as the user's login until it expires or is revoked. We mark it expired when a task finds itself logged out.
 - **Placeholders hide values from the model, not from the browser.** A compromised site page could read a field after it's typed. Domain scoping reduces this.
 - **Card payments** store the card without CVV, so sites that ask for CVV need the user. Paying in the demo stops before payment by default.
-- **Bot checks and CAPTCHAs** aren't bypassed; the task stops and says so. Some sites need a proxy country (e.g. India for Swiggy).
+- **Bot checks and CAPTCHAs** aren't bypassed; the task stops and says so. Some sites need a proxy country; it's set per site (India for Swiggy only).
 - **Single backend process.** Tasks live in one process; restarts are recovered from checkpoints, but scaling out needs a job queue.
 - **No per-site permission scopes.** Access to a site is all-or-nothing; there's no "read-only" grant yet.
 - **Google sign-in for the app is in testing mode**, so only listed test users can sign in.

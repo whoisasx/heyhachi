@@ -14,14 +14,14 @@ Each scenario shows something the assignment grades (UX, credentials, reliabilit
 |---|---|---|
 | 1 | **GitHub login with password + TOTP 2FA.** Run a second task afterwards: no login needed. | Credential vault, TOTP setup key given once through secure input, session reuse in a fresh browser |
 | 2 | **"Log into my Gmail and use it to sign into Vercel."** The user logs into Gmail once through the live browser view; the agent then uses "Sign in with Google" on Vercel. | Live-view login (no password stored), cookie storage, cross-site login. This is the assignment's own sample prompt. |
-| 3 | **"Use my OpenRouter API key to generate a video."** The key is collected through a secure input and never appears in chat or model input. | API key handling; the agent picks an API over the browser when that's the better tool |
+| 3 | **"Save my OpenRouter API key, then ask a free model on OpenRouter to write a haiku."** The key is collected through a secure input and never appears in chat or model input; the reply shows only its masked label. | API key handling, no secret in chat |
 | 4 | **"Repeat my last Swiggy order to the same address."** SMS OTP login, cart ready, confirm card, then stop before payment (or pay only on explicit confirmation). | SMS OTP flow, confirmation before irreversible actions, verifying the result |
 | 5 | **Revoke Swiggy access**, then ask for a Swiggy task again: the assistant asks to connect. | Revocation |
 
 ### Open questions
 
-- [x] Swiggy needs an Indian IP: Browser Use Cloud supports proxy country `in` (`BROWSER_PROXY_COUNTRY=in`).
-- [ ] Check what OpenRouter actually supports for video generation. Fall back to image generation or another API-key task if needed.
+- [x] Swiggy needs an Indian IP: Browser Use Cloud supports proxy country `in`. Set per site with `BROWSER_PROXY_SITES` (default `swiggy.com:in`), so other sites don't go through India.
+- [x] OpenRouter: our account is on the free tier ($0 credit, 50 free-model requests a day). Free models are text only; image and video generation need paid credit, so scenario 3 uses a free text model.
 - [ ] Test accounts ready: GitHub (with 2FA on), Gmail, Vercel, OpenRouter, Swiggy.
 
 ---
@@ -125,5 +125,5 @@ Left: confirm Google sign-in on the live site, run the test list, demo video.
 
 - [ ] Runnable repo
 - [x] Deployed link: https://browser-agent-drab.vercel.app
-- [ ] ~2-minute demo video
+- [ ] ~2-minute demo video (script: [DEMO.md](DEMO.md))
 - [ ] Short note on access-management choices and known limits
