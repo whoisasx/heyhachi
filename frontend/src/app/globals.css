@@ -352,9 +352,11 @@ body::before {
   border: 1px solid var(--border);
 }
 
-/* A new message eases in. */
+/* A new message eases in. "backwards", not "both": an animation held after it ends
+   keeps the message a frame for fixed children, and the live view's larger view
+   (position: fixed) would open inside the chat column instead of over the window. */
 .msg-in {
-  animation: msg-in 0.35s ease-out both;
+  animation: msg-in 0.35s ease-out backwards;
 }
 @keyframes msg-in {
   from { opacity: 0; translate: 0 6px; }
