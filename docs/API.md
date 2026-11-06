@@ -43,7 +43,7 @@ Every error uses the same body:
 | 409 | `task_in_progress`, `task_not_waiting`, `stale_card`, `task_finished` |
 | 410 | `input_expired` |
 | 422 | `validation_error`, `secret_in_message`, `invalid_totp_secret` |
-| 429 | `rate_limited`, `too_many_active_tasks` |
+| 429 | `rate_limited`, `too_many_active_tasks`, `daily_limit` |
 | 500 | `internal_error` |
 | 503 | `upstream_unavailable` (Claude or Browser Use down) |
 
@@ -230,6 +230,7 @@ Errors:
 - `409 task_in_progress`: this conversation already has an unfinished task (v1: one at a time per conversation).
 - `422 secret_in_message`: the content looks like a password, API key, card number or OTP. The message is **not stored**; the frontend shows "Use the secure input instead". An `audit_log` row (`secret_pasted_in_chat`) is written without the value.
 - `429 too_many_active_tasks`: user already has 3 unfinished tasks.
+- `429 daily_limit`: the user's tasks have cost $5 or more in the last 24 hours.
 
 ### `GET /tasks/{id}`
 Summary only. Never returns `checkpoint` or `markers`.
@@ -303,7 +304,7 @@ Response: `202 {"id": "…", "status": "queued", "events_url": "/v1/tasks/…/ev
 Errors:
 - `409 task_not_retryable`: the task isn't failed/cancelled, or its error isn't retryable (e.g. `access_revoked`).
 - `409 task_not_resumable`: limits (`step_limit`, `time_limit`, `cost_limit`) and `too_many_attempts` can only `restart`.
-- `409 task_in_progress` / `429 too_many_active_tasks`: same rules as sending a message.
+- `409 task_in_progress` / `429 too_many_active_tasks` / `429 daily_limit`: same rules as sending a message.
 
 Irreversible-action markers are always honored: a resumed task checks the site before repeating anything (ARCHITECTURE §9.2).
 
@@ -408,7 +409,8 @@ Live-login browsers are closed automatically after 10 minutes.
 | Unfinished tasks per conversation | 1 | `409 task_in_progress` |
 | Browser steps per task | 40 | task `failed`, `step_limit` |
 | Wall time per task | 10 minutes running (waiting time not counted) | task `failed`, `time_limit` |
-| Cost per task | $1.00 | task `failed`, `cost_limit` |
+| Cost per task | $0.50 | task `failed`, `cost_limit` |
+| Cost per user per day | $5.00 over the last 24 hours | `429 daily_limit` for new tasks and retries; a running task `failed`, `daily_limit` |
 | Waiting for the user | 10 minutes | task `failed`, `waiting_timeout` (Resume available) |
 | Live-view login | 10 minutes | browser closed |
 

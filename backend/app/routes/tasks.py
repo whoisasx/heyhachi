@@ -16,7 +16,7 @@ from app.errors import APIError, not_found
 from app.events import LostOwnership
 from app.models import ACTIVE_STATUSES, TERMINAL_STATUSES, Task, TaskInput
 from app.relay import Event
-from app.routes.limits import too_many_tasks
+from app.routes.limits import check_daily_limit, too_many_tasks
 from app.runner import INPUT_KIND_FOR
 from app.schemas import Accepted, RetryIn, TaskInputIn, TaskOut, TaskRef
 
@@ -242,6 +242,7 @@ async def retry_task(
         )
         if active >= state.settings.max_active_tasks_per_user:
             raise await too_many_tasks(session, user.id)
+        await check_daily_limit(session, user.id, state.settings.max_cost_per_user_day_usd)
 
     try:
         if body.mode == "resume":

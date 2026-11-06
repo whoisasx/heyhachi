@@ -55,7 +55,8 @@ class Settings(BaseSettings):
     llm_max_tokens: int = 8000
     llm_fallbacks: bool = True  # server-side refusal fallback (Claude API only)
     orchestrator_max_steps: int = 15
-    max_cost_per_task_usd: float = 1.0
+    max_cost_per_task_usd: float = 0.5
+    max_cost_per_user_day_usd: float = 5.0  # all of a user's tasks in the last 24 hours
 
     # Browser. "local": browser-use drives Chrome on this machine (dev);
     # "cloud": Browser Use Cloud (production, live view).

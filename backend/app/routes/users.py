@@ -44,6 +44,7 @@ async def app_settings(request: Request, user: CurrentUser) -> dict[str, Any]:
         "models": {"orchestrator": model(s.llm_model), "browser": model(s.browser_llm_model)},
         "limits": {
             "cost_per_task_usd": s.max_cost_per_task_usd,
+            "cost_per_day_usd": s.max_cost_per_user_day_usd,
             "browser_steps": s.browser_max_steps,
             "task_minutes": round(s.max_task_seconds / 60),
             "wait_minutes": round(s.waiting_timeout / 60),

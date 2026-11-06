@@ -33,7 +33,7 @@ Status: built, deployed and tested live (see [RELIABILITY.md](docs/RELIABILITY.m
 Access and secrets: see [ACCESS.md](docs/ACCESS.md#known-limits). The rest:
 
 - **Live view shape.** The cloud browser's window is fixed (1920×911), so in a tall side panel the page leaves space below it; **Full screen** shows it large.
-- **Long sites cost more.** Some flows (Swiggy re-orders) take 30+ steps and can reach the $1 per-task limit.
+- **Long sites cost more.** Some flows (Swiggy re-orders) take 30+ steps and can reach the $0.50 per-task limit. Each user can spend up to $5 a day.
 - **Cloud browser sessions** last at most 15 minutes (Browser Use free plan), which caps one browser step.
 
 ## Stack
@@ -76,7 +76,7 @@ npm run dev                   # http://localhost:3000
 
 ```bash
 cd backend
-uv run pytest                 # 131 tests; needs `docker compose up -d`
+uv run pytest                 # 132 tests; needs `docker compose up -d`
 uv run ruff check . && uv run ruff format --check .
 ```
 

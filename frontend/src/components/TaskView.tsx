@@ -26,7 +26,8 @@ interface TaskError {
 const NEXT_STEP: Record<string, string> = {
   step_limit: "It needed more steps than a task is allowed. Start over with a more specific request.",
   time_limit: "It ran past the time limit for one task. Start over, maybe with a smaller request.",
-  cost_limit: "It reached the $1 spending limit for one task. Start over with a narrower request.",
+  cost_limit: "It reached the $0.50 spending limit for one task. Start over with a narrower request.",
+  daily_limit: "You've used today's $5 spending limit. Resume it tomorrow.",
   too_many_attempts: "It failed several times in a row. Try again in a while, or rephrase the request.",
   waiting_timeout: "I waited too long for your answer. Resume to pick up where I left off.",
   access_revoked: "Access to the site was removed. Reconnect it in the Vault, then start over.",

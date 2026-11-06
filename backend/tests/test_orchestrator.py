@@ -1,6 +1,7 @@
 """Orchestrator tests with a scripted fake LLM (phase 4.2). No network, no API spend."""
 
 import json
+import uuid
 from typing import Any
 
 import pytest
@@ -167,6 +168,31 @@ async def test_cost_limit(make_client):
     _, task_id = await start_task(client, "expensive")
     task = await wait_for_status(client, task_id, "failed")
     assert task["error"]["code"] == "cost_limit"
+
+
+async def test_daily_limit_stops_task_and_blocks_new_ones(make_client):
+    big = Usage(input_tokens=1_000_000)  # $2 at Sonnet prices
+    resp = LLMResponse(content=[{"type": "text", "text": "x"}], stop_reason="end_turn", usage=big)
+    client = await make_client(
+        executor=orchestrator(ScriptedLLM(resp)),
+        max_cost_per_task_usd=10.0,
+        max_cost_per_user_day_usd=1.0,
+    )
+    _, task_id = await start_task(client, "expensive")
+    task = await wait_for_status(client, task_id, "failed")
+    assert task["error"]["code"] == "daily_limit"
+
+    conv = (await client.post("/conversations")).json()
+    blocked = await client.post(
+        f"/conversations/{conv['id']}/messages",
+        json={"content": "one more", "client_message_id": str(uuid.uuid4())},
+    )
+    assert blocked.status_code == 429
+    assert blocked.json()["error"]["code"] == "daily_limit"
+
+    retry = await client.post(f"/tasks/{task_id}/retry", json={"mode": "resume"})
+    assert retry.status_code == 429
+    assert retry.json()["error"]["code"] == "daily_limit"
 
 
 class FakeCtx:

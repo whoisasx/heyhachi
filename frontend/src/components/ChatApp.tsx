@@ -196,6 +196,8 @@ export function ChatApp() {
       const chat = created ? null : activeId;
       if (err instanceof ApiError && err.code === "secret_in_message") {
         setError({ chat, text: err.message, secret: true });
+      } else if (err instanceof ApiError && err.code === "daily_limit") {
+        setError({ chat, text: err.message }); // no retry: it won't work until tomorrow
       } else if (err instanceof ApiError && err.code === "too_many_active_tasks") {
         const running = (err.details.running as RunningTask[] | undefined) ?? [];
         setError({ chat, text: err.message, running: running.length ? running : undefined });
@@ -564,7 +566,7 @@ interface ChatError {
 /** What the assistant may do on its own: shown next to the send button. */
 function Guardrails() {
   const items = [
-    { icon: "M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6", text: "Up to $1 per task", tip: "A task stops before it spends more than $1 on AI and browser time." },
+    { icon: "M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6", text: "Up to $0.50 per task", tip: "A task stops once it spends more than $0.50 on AI, and each person can spend up to $5 a day." },
     { icon: "M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z M9 12l2 2 4-4", text: "Asks before paying", tip: "Paying, ordering, sending and deleting always wait for your OK." },
   ];
   return (

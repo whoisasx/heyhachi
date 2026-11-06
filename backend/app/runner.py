@@ -164,7 +164,11 @@ class TaskContext:
         self.checkpoint = dict(checkpoint)
 
     async def add_cost(self, usd: float) -> float:
-        """Add spend to the task and enforce the per-task cost limit. Returns the new total."""
+        """Add spend to the task and enforce the per-task and per-user daily cost limits.
+
+        Returns the task's new total.
+        """
+        settings = self._runner.settings
         async with self._runner.session_factory() as session, session.begin():
             total = await session.scalar(
                 update(Task)
@@ -172,10 +176,22 @@ class TaskContext:
                 .values(cost_usd=Task.cost_usd + usd)
                 .returning(Task.cost_usd)
             )
-        if total is None:
-            raise LostOwnership(str(self.task_id))
-        if float(total) > self._runner.settings.max_cost_per_task_usd:
+            if total is None:
+                raise LostOwnership(str(self.task_id))
+            today = await session.scalar(
+                select(func.coalesce(func.sum(Task.cost_usd), 0)).where(
+                    Task.user_id == self.user_id,
+                    Task.created_at >= datetime.now(UTC) - timedelta(hours=24),
+                )
+            )
+        if float(total) > settings.max_cost_per_task_usd:
             raise TaskFailed("cost_limit", "This task hit its spending limit.", retryable=True)
+        if float(today) > settings.max_cost_per_user_day_usd:
+            raise TaskFailed(
+                "daily_limit",
+                f"You've used today's ${settings.max_cost_per_user_day_usd:.0f} spending limit.",
+                retryable=True,
+            )
         return float(total)
 
     async def history(self, limit: int = 20) -> list[dict[str, Any]]:

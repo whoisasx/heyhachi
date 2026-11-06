@@ -13,7 +13,7 @@ interface Model {
 }
 interface AppSettings {
   models: { orchestrator: Model; browser: Model };
-  limits: { cost_per_task_usd: number; browser_steps: number; task_minutes: number; wait_minutes: number };
+  limits: { cost_per_task_usd: number; cost_per_day_usd: number; browser_steps: number; task_minutes: number; wait_minutes: number };
   browser: "cloud" | "local";
 }
 interface Usage {
@@ -111,6 +111,7 @@ export default function SettingsPage() {
           {settings ? (
             <>
               <Row title="Spending limit" sub="AI and browser cost together; the task stops at this" right={<Mono>${settings.limits.cost_per_task_usd.toFixed(2)}</Mono>} />
+              <Row title="Daily spending" sub="All your tasks in the last 24 hours; new tasks wait after this" right={<Mono>${settings.limits.cost_per_day_usd.toFixed(2)}</Mono>} />
               <Row title="Browser steps" sub="Clicks, typing and page loads per browser run" right={<Mono>{settings.limits.browser_steps}</Mono>} />
               <Row title="Working time" sub="Time spent working, not waiting for you" right={<Mono>{settings.limits.task_minutes} min</Mono>} />
               <Row title="Waiting for you" sub="A task pauses if a card isn't answered; Resume picks it up" right={<Mono>{settings.limits.wait_minutes} min</Mono>} />

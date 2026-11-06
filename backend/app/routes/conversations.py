@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from app.auth import CurrentUser
 from app.errors import APIError, not_found
 from app.models import ACTIVE_STATUSES, AuditLog, Conversation, Message, Task, TaskEvent
-from app.routes.limits import too_many_tasks
+from app.routes.limits import check_daily_limit, too_many_tasks
 from app.schemas import (
     ConversationCreated,
     ConversationDetail,
@@ -206,6 +206,7 @@ async def send_message(
         )
         if active_count >= state.settings.max_active_tasks_per_user:
             raise await too_many_tasks(session, user.id)
+        await check_daily_limit(session, user.id, state.settings.max_cost_per_user_day_usd)
 
         task = Task(
             id=uuid.uuid4(),
