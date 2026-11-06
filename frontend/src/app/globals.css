@@ -685,3 +685,13 @@ main:has(> .page-meadow) {
     animation: none;
   }
 }
+
+/* A live browser shown large (src/lib/overlay.ts): lift the chat column above the
+   sidebar, and Hachi steps away until it's closed. */
+html[data-live-big] main {
+  z-index: 50;
+}
+html[data-live-big] .pet,
+html[data-live-big] .pet-sparkle {
+  visibility: hidden;
+}

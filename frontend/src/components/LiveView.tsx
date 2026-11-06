@@ -2,6 +2,8 @@
 
 import { type ReactNode, useEffect, useState } from "react";
 
+import { useLiftOverlay } from "@/lib/overlay";
+
 /**
  * A cloud browser's live view, embedded in the page. "Expand" lifts it into a large
  * panel (about 80% of the screen) over a blurred page; "Close" puts it back.
@@ -9,6 +11,7 @@ import { type ReactNode, useEffect, useState } from "react";
  */
 export function LiveView({ url, title, actions }: { url: string; title: string; actions?: ReactNode }) {
   const [big, setBig] = useState(false);
+  useLiftOverlay(big);
 
   useEffect(() => {
     if (!big) return;

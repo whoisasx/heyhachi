@@ -22,6 +22,8 @@ function savedWidth() {
   }
 }
 
+import { useLiftOverlay } from "@/lib/overlay";
+
 /**
  * The live browser beside the chat. Drag its left edge (or use the arrow keys on it)
  * to make it wider or narrower; the width is remembered in this browser.
@@ -42,6 +44,7 @@ export function LivePanel({
   const [width, setWidth] = useState(560);
   const [dragging, setDragging] = useState(false);
   const [big, setBig] = useState(false); // full screen
+  useLiftOverlay(big);
   const [area, setArea] = useState<{ w: number; h: number } | null>(null);
   const areaRef = useRef<HTMLDivElement>(null);
   const latest = useRef(width);
