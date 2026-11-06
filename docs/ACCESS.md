@@ -16,6 +16,10 @@ A short note on how the assistant handles the user's access to websites, why, an
 
 **Personal details are placeholders too.** The phone number is verified with Firebase (Google sends the SMS); the backend checks the token and keeps only the encrypted number. Details for forms (name, birthday, email, address) are typed into the task's site as placeholders the model never sees; only the ones it has to pick from a list (city, state, country, gender, food preference) are shown to it.
 
+**Each saved login holds only its own site.** A browser picks up other sites' cookies during a task (trackers, a Google sign-in page); only the site's own cookies and storage are saved under it, so the Vault shows exactly what's held and revoking a site removes all of it.
+
+**"Sign in with Google" only on approval.** If the user connected google.com, a task on another site that offers Google sign-in shows a card first ("Sign in to vercel.com with Google?"). Only after Approve is the Google login loaded into that task's browser; afterwards the site's new login is saved under the site and Google's refreshed cookies under google.com. Revoking Google stops a task using it.
+
 **Fresh browser per task.** Each task gets a new browser (local Chrome in development, Browser Use Cloud in production) loaded with only that site's saved login, closed afterwards.
 
 ## Known limits
@@ -27,6 +31,7 @@ A short note on how the assistant handles the user's access to websites, why, an
 - **The site is checked in code, the field isn't.** A placeholder only turns into the real value on the saved site (checked against the page URL), but which box it goes into is the model's choice, guided by instructions. On the right site it could still type a password into a search or comment box, or put a placeholder in a URL, and the check uses the page's address, not an embedded frame's. **Next:** a "fill field with saved secret" action that inspects the element first (password only into `type=password`, card number only into `cc-number`, codes into one-time-code fields), checks the field's own frame is on the site, and allows secrets in no other action; if a field can't be matched, it asks the user.
 - **Card payments** store the card without CVV, so sites that ask for CVV need the user. Paying in the demo stops before payment by default.
 - **Bot checks and CAPTCHAs** aren't bypassed; the task stops and says so. Some sites need a proxy country; it's set per site (India for Swiggy only).
+- **A Google login is powerful.** It can reset passwords elsewhere, and Google may challenge or end a session that shows up in a cloud browser, so it may need logging in again. It's never used without a per-task approval.
 - **Single backend process.** Tasks live in one process; restarts are recovered from checkpoints, but scaling out needs a job queue.
 - **No per-site permission scopes.** Access to a site is all-or-nothing; there's no "read-only" grant yet.
 - **Google sign-in shows an "unverified app" notice** until Google verifies the app (it only asks for name and email).

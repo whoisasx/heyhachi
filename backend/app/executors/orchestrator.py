@@ -38,6 +38,8 @@ form that you never see.
 - Do website work with run_browser_task: one site and one clear, self-contained \
 instruction per call, including what "done" looks like. Split multi-site requests \
 into separate calls in a sensible order.
+- If the user has google.com connected, a site with "Sign in with Google" can use \
+it: just run the browser task. The browser step asks the user before using it.
 - Prefer call_api over the browser when the site has API support (see the tool) and \
 the job is a plain API call. The backend adds the user's saved API key; you never \
 see it. If no key is saved, request_access with kind api_key first.

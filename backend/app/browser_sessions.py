@@ -5,6 +5,7 @@ docs/SCHEMA.md §3.8. Every load and save is written to the audit log.
 
 import uuid
 from typing import Any
+from urllib.parse import urlsplit
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -13,6 +14,33 @@ from app.crypto import Vault
 from app.models import AuditLog, BrowserSession
 
 SESSION_KIND = "session"
+
+
+def same_site(domain: str, site: str) -> bool:
+    """'.github.com' and 'api.github.com' belong to github.com; 'evilgithub.com' doesn't."""
+    domain = domain.lstrip(".").lower()
+    return domain == site or domain.endswith("." + site)
+
+
+def only_site(state: dict[str, Any], site: str) -> dict[str, Any]:
+    """Keep only the site's own cookies and localStorage.
+
+    A browser picks up other sites' cookies during a task (trackers, a Google
+    sign-in page). They don't belong in this site's saved login: the Vault would
+    show "facebook.com" while also holding a Google session, and revoking Google
+    wouldn't remove it.
+    """
+    return {
+        **state,
+        "cookies": [
+            c for c in state.get("cookies", []) if same_site(str(c.get("domain", "")), site)
+        ],
+        "origins": [
+            o
+            for o in state.get("origins", [])
+            if same_site(urlsplit(str(o.get("origin", ""))).hostname or "", site)
+        ],
+    }
 
 
 def normalize_site(site: str) -> str:
@@ -49,6 +77,18 @@ class SessionStore:
             await db.commit()
             return state
 
+    async def has_active(self, user_id: uuid.UUID, site: str) -> bool:
+        """Whether there's an active saved login for the site (nothing decrypted or logged)."""
+        async with self.session_factory() as db:
+            row = await db.scalar(
+                select(BrowserSession.id).where(
+                    BrowserSession.user_id == user_id,
+                    BrowserSession.site == site,
+                    BrowserSession.status == "active",
+                )
+            )
+            return row is not None
+
     async def save(
         self,
         user_id: uuid.UUID,
@@ -57,7 +97,11 @@ class SessionStore:
         *,
         source: str,
         task_id: uuid.UUID | None = None,
-    ) -> None:
+    ) -> bool:
+        """Save the site's own cookies. Returns False if there were none to keep."""
+        state = only_site(state, site)
+        if not state["cookies"]:
+            return False
         sealed = self.vault.seal(state, user_id=user_id, site=site, kind=SESSION_KIND)
         async with self.session_factory() as db:
             row = await db.scalar(
@@ -76,6 +120,7 @@ class SessionStore:
             row.updated_at = func.now()
             db.add(_audit(user_id, "session_saved", site, row.id, task_id))
             await db.commit()
+        return True
 
     async def mark_expired(self, user_id: uuid.UUID, site: str) -> None:
         async with self.session_factory() as db:

@@ -319,7 +319,7 @@ async def test_live_login_needs_a_browser(client):
 
 
 def test_cookie_site_match_rejects_lookalikes():
-    from app.live_login import _same_site
+    from app.browser_sessions import same_site as _same_site
 
     assert _same_site(".github.com", "github.com")
     assert _same_site("api.github.com", "github.com")

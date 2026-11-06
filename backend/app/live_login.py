@@ -16,17 +16,12 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from app.browser_sessions import SessionStore
+from app.browser_sessions import SessionStore, same_site
 from app.config import Settings
 
 log = logging.getLogger(__name__)
 
 LOGIN_TTL = timedelta(minutes=10)
-
-
-def _same_site(cookie_domain: str, site: str) -> bool:
-    domain = cookie_domain.lstrip(".").lower()
-    return domain == site or domain.endswith("." + site)
 
 
 class LiveLoginError(Exception):
@@ -103,7 +98,7 @@ class LiveLoginManager:
         login = self._get(login_id, user_id)
         state = await login.browser.export_storage_state()
         site_cookies = [
-            c for c in state.get("cookies", []) if _same_site(str(c.get("domain", "")), login.site)
+            c for c in state.get("cookies", []) if same_site(str(c.get("domain", "")), login.site)
         ]
         if not site_cookies:
             raise LiveLoginError(
