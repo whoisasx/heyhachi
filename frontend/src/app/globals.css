@@ -514,7 +514,7 @@ main:has(> .page-meadow) {
   z-index: 40;
   pointer-events: none;
   transition-property: translate, opacity;
-  transition-timing-function: linear, ease;
+  transition-timing-function: cubic-bezier(0.45, 0, 0.35, 1), ease;
 }
 .pet-body { position: relative; transform-origin: 0 0; transition: scale 0.6s ease; }
 .pet img {
@@ -525,6 +525,9 @@ main:has(> .page-meadow) {
   user-select: none;
   filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.2));
 }
+.pet img { animation: pet-pose 0.3s ease-out; transition: translate 0.45s cubic-bezier(0.3, 0.7, 0.3, 1), rotate 0.45s ease; }
+/* gliding: it floats up a little and leans into the glide */
+.pet-gliding img { translate: 0 -7px; rotate: 2deg; }
 .pet-petted img { animation: pet-hop 0.5s ease-out 2; }
 .pet-heart {
   position: absolute;
@@ -543,6 +546,7 @@ main:has(> .page-meadow) {
   text-shadow: 0 0 6px rgba(255, 209, 102, 0.8);
   animation: pet-sparkle 2.2s ease-out forwards;
 }
+@keyframes pet-pose { from { opacity: 0.55; } to { opacity: 1; } }
 @keyframes pet-hop { 0%, 100% { translate: 0 0; } 40% { translate: 0 -8px; } }
 @keyframes pet-heart { from { opacity: 1; translate: -50% 0; } to { opacity: 0; translate: -50% -26px; } }
 @keyframes pet-sparkle {

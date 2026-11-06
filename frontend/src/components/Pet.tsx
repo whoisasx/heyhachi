@@ -6,14 +6,16 @@ import { useRoam } from "@/lib/pet";
 
 /**
  * Hachi, a golden retriever (drawings in public/pet, made by scripts/pet.py).
- * - Normally sits on the top-right corner of the chat box, facing you.
- * - With "Let Hachi roam" on, walks to sit beside the open chat in the sidebar,
+ * It never walks: it stays sitting and glides, in any direction, leaving a faint sparkle trail.
+ * - Normally sits on the top-right corner of the chat box.
+ * - With "Let Hachi roam" on, glides to sit beside the open chat in the sidebar,
  *   or wanders around the screen when no chat is open.
- * It walks slowly, only straight across or straight up/down, and leaves a faint sparkle trail.
+ * Sitting still, it changes pose every few seconds: facing you, head tilted either way,
+ * or side-on either way. Gliding, it faces where it's going.
  * Pages mark the spots with data-pet="composer" and data-pet="active-chat".
  */
 
-type Pose = "sit" | "front" | "side";
+type Pose = "front" | "tilt" | "side";
 type Face = 1 | -1;
 interface Spot {
   x: number; // where the paws touch the ground
@@ -24,18 +26,27 @@ interface View extends Spot {
   pose: Pose;
   face: Face;
   ms: number;
+  gliding: boolean;
   shown: boolean;
 }
 
-const SRC: Record<Pose, string> = { sit: "/pet/sit.svg", front: "/pet/walk-front.svg", side: "/pet/walk-side.svg" };
+const SRC: Record<Pose, string> = { front: "/pet/sit.svg", tilt: "/pet/sit-tilt.svg", side: "/pet/sit-side.svg" };
 // width, height, and how far down the picture the paws are
 const BOX: Record<Pose, [number, number, number]> = {
-  sit: [64, 64, 114 / 120],
-  front: [64, 64, 114 / 120],
-  side: [90, 63, 95 / 100],
+  front: [64, 64, 111 / 120],
+  tilt: [64, 64, 111 / 120],
+  side: [81, 64, 106 / 112],
 };
-const SPEED = 45; // px per second: an easy stroll
+const SPEED = 60; // px per second: an easy glide
 const REST = [3000, 8000]; // ms to sit between wanders
+const POSE_EVERY = [3500, 7000]; // ms between pose changes while sitting
+const IDLE: [Pose, Face][] = [
+  ["front", 1],
+  ["tilt", 1],
+  ["tilt", -1],
+  ["side", 1],
+  ["side", -1],
+];
 
 function onScreen(r: DOMRect) {
   return r.width > 0 && r.left >= 0 && r.top >= 40 && r.bottom <= window.innerHeight && r.right + 50 <= window.innerWidth;
@@ -98,7 +109,7 @@ export function Pet() {
   const box = useRef<HTMLDivElement>(null);
   const face = useRef<Face>(1);
 
-  /** Where Hachi actually is right now, even mid-walk. */
+  /** Where Hachi actually is right now, even mid-glide. */
   const now = () => {
     const el = box.current;
     if (!el) return null;
@@ -115,30 +126,22 @@ export function Pet() {
     let restUntil = 0;
     let shown = false;
 
-    /** Walk to a spot: first straight across, then straight up or down. Returns the time it takes. */
-    const walk = (to: Spot) => {
+    /** Glide straight to a spot, still sitting. Returns the time it takes. */
+    const glide = (to: Spot) => {
       steps.forEach(clearTimeout);
       steps = [];
       const from = now() ?? to;
-      const legs: Omit<View, "ms" | "shown">[] = [];
       const dx = to.x - from.x;
       const dy = to.y - from.y;
-      if (Math.abs(dx) > 2) {
-        face.current = dx > 0 ? 1 : -1;
-        legs.push({ x: to.x, y: from.y, scale: to.scale, pose: "side", face: face.current });
-      }
-      if (Math.abs(dy) > 2) legs.push({ x: to.x, y: to.y, scale: to.scale, pose: dy > 0 ? "front" : "side", face: face.current });
-
-      let delay = 0;
-      let at = from;
-      for (const leg of legs) {
-        const ms = still ? 0 : (Math.hypot(leg.x - at.x, leg.y - at.y) / SPEED) * 1000;
-        steps.push(setTimeout(() => setView({ ...leg, ms, shown: true }), delay));
-        delay += ms;
-        at = leg;
-      }
-      steps.push(setTimeout(() => setView((v) => v && { ...v, pose: "sit", ms: 0, scale: to.scale }), delay));
-      return delay;
+      const dist = Math.hypot(dx, dy);
+      if (dist < 3) return 0;
+      // mostly sideways: side-on, facing the way it goes; mostly up or down: facing you
+      const side = Math.abs(dx) >= Math.abs(dy) * 0.6;
+      if (side) face.current = dx > 0 ? 1 : -1;
+      const ms = still ? 0 : (dist / SPEED) * 1000 + 400;
+      setView({ ...to, pose: side ? "side" : "front", face: face.current, ms, gliding: ms > 0, shown: true });
+      steps.push(setTimeout(() => setView((v) => v && { ...v, gliding: false, ms: 0 }), ms));
+      return ms;
     };
 
     const tick = () => {
@@ -146,7 +149,7 @@ export function Pet() {
       if (t === null) {
         if (shown) {
           steps.forEach(clearTimeout);
-          setView((v) => v && { ...v, shown: false, pose: "sit", ms: 0 });
+          setView((v) => v && { ...v, shown: false, gliding: false, ms: 0 });
         }
         shown = false;
         goal = null;
@@ -156,18 +159,18 @@ export function Pet() {
         goal = spot;
         mode = t === "wander" ? "wander" : "x1" in t ? "pace" : null;
         restUntil = Date.now() + 2500;
-        setView({ ...spot, pose: "sit", face: face.current, ms: 0, shown: true });
+        setView({ ...spot, pose: "front", face: face.current, ms: 0, gliding: false, shown: true });
       } else if (t === "wander" || "x1" in t) {
         const next = t === "wander" ? "wander" : "pace";
         if (mode !== next || Date.now() >= restUntil) {
           mode = next;
           goal = t === "wander" ? randomSpot() : paceSpot(t, now()?.x);
-          restUntil = Date.now() + walk(goal) + REST[0] + Math.random() * (REST[1] - REST[0]);
+          restUntil = Date.now() + glide(goal) + REST[0] + Math.random() * (REST[1] - REST[0]);
         }
       } else if (mode || !goal || far(goal, t)) {
         mode = null;
         goal = t;
-        walk(t);
+        glide(t);
       }
       loop = setTimeout(tick, 600);
     };
@@ -179,10 +182,34 @@ export function Pet() {
     };
   }, [roam]);
 
-  // a faint sparkle trail while walking
-  const walking = !!view && view.shown && view.pose !== "sit";
+  // sitting still: a new pose every few seconds
+  const resting = !!view && view.shown && !view.gliding;
   useEffect(() => {
-    if (!walking || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (!resting || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let t: ReturnType<typeof setTimeout>;
+    const next = () => {
+      t = setTimeout(
+        () => {
+          setView((v) => {
+            if (!v || v.gliding) return v;
+            const others = IDLE.filter(([p, f]) => p !== v.pose || (p !== "front" && f !== v.face));
+            const [pose, f] = others[Math.floor(Math.random() * others.length)];
+            face.current = f;
+            return { ...v, pose, face: f };
+          });
+          next();
+        },
+        POSE_EVERY[0] + Math.random() * (POSE_EVERY[1] - POSE_EVERY[0]),
+      );
+    };
+    next();
+    return () => clearTimeout(t);
+  }, [resting]);
+
+  // a faint sparkle trail while gliding
+  const gliding = !!view && view.shown && view.gliding;
+  useEffect(() => {
+    if (!gliding || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const add = setInterval(() => {
       const p = now();
       if (!p) return;
@@ -191,7 +218,7 @@ export function Pet() {
       setTimeout(() => setSparkles((s) => s.filter((k) => k.id !== id)), 2200);
     }, 520);
     return () => clearInterval(add);
-  }, [walking]);
+  }, [gliding]);
 
   useEffect(() => {
     if (!petted) return;
@@ -210,7 +237,7 @@ export function Pet() {
       ))}
       <div
         ref={box}
-        className={`pet ${petted ? "pet-petted" : ""}`}
+        className={`pet ${view.gliding ? "pet-gliding" : ""} ${petted ? "pet-petted" : ""}`}
         style={{
           translate: `${view.x}px ${view.y}px`,
           transitionDuration: `${view.ms}ms, 400ms`,
@@ -226,6 +253,7 @@ export function Pet() {
           )}
           {/* eslint-disable-next-line @next/next/no-img-element -- tiny animated SVGs; next/image would strip the animation */}
           <img
+            key={view.pose}
             src={SRC[view.pose]}
             alt="Hachi"
             title="Hachi"
@@ -233,7 +261,7 @@ export function Pet() {
             height={h}
             draggable={false}
             onClick={() => setPetted(Date.now())}
-            style={{ left: -w / 2, top: -h * feet, scale: view.face === -1 && view.pose === "side" ? "-1 1" : undefined }}
+            style={{ left: -w / 2, top: -h * feet, scale: view.face === -1 && view.pose !== "front" ? "-1 1" : undefined }}
           />
         </div>
       </div>

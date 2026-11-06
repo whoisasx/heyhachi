@@ -47,7 +47,7 @@ FRONT_BODY = f"""
  <path d="M56 17C57 24 57 30 55 37H65C63 30 63 24 64 17Z" fill="#F4C27C" opacity=".55"/>
  <path class="strand" style="opacity:.3" d="M50 20C48 23 47 26 47 29M70 20C72 23 73 26 73 29"/>
  <path d="M38 44Q34 50 39 52Q36 56 42 56M82 44Q86 50 81 52Q84 56 78 56" fill="#E59A45"/>
- <path d="M42 26C30 25 25 37 26 48C27 58 31 66 37 66C41 63 43 57 45 50C47 42 47 32 42 26Z" fill="url(#ear)"/>
+ <path class="earL" d="M42 26C30 25 25 37 26 48C27 58 31 66 37 66C41 63 43 57 45 50C47 42 47 32 42 26Z" fill="url(#ear)"/>
  <path d="M78 26C90 25 95 37 94 48C93 58 89 66 83 66C79 63 77 57 75 50C73 42 73 32 78 26Z" fill="url(#ear)"/>
  <path class="strand" d="M33 36C31 44 31 52 33 60M38 34C36 42 36 52 37 62M87 36C89 44 89 52 87 60M82 34C84 42 84 52 83 62" style="stroke:#8E5118"/>
  <path d="M30 62Q32 67 35 64Q37 68 39 63M90 62Q88 67 85 64Q83 68 81 63" fill="#A45E1E"/>
@@ -55,65 +55,83 @@ FRONT_BODY = f"""
  {eye(50.5, 36)}{eye(69.5, 36)}
  <ellipse cx="60" cy="48.5" rx="12.5" ry="9" fill="url(#cream)"/>
  <path d="M52 53C55 61 65 61 68 53C64 56.5 56 56.5 52 53Z" fill="#6B2C28"/>
- <path d="M55.6 55.6C55 62 57 66.5 60 66.5C63 66.5 65 62 64.4 55.6C62 57.2 58 57.2 55.6 55.6Z" fill="#EE7C8A"/>
+<path class="tongue" d="M55.6 55.6C55 62 57 66.5 60 66.5C63 66.5 65 62 64.4 55.6C62 57.2 58 57.2 55.6 55.6Z" fill="#EE7C8A"/>
  <path d="M60 57.5V64" stroke="#D45E6E" stroke-width=".8" stroke-linecap="round"/>
  <path d="M60 49.5V52.5M49.5 51C53 56 57 56 60 52.5C63 56 67 56 70.5 51" stroke="#5A3420" stroke-width="1.2" fill="none" stroke-linecap="round"/>
  <path d="M53.5 44.2C53.5 41 66.5 41 66.5 44.2C66.5 47.6 62.3 49.8 60 49.8C57.7 49.8 53.5 47.6 53.5 44.2Z" fill="#2A1A12"/>
  <ellipse cx="57.3" cy="43.1" rx="1.8" ry=".9" fill="#fff" opacity=".45"/>
 </g>"""
 
-def front(walking: bool) -> str:
-    extra = ""
-    if walking:
-        extra = """.legL{animation:step .55s ease-in-out infinite alternate}.legR{animation:step .55s ease-in-out infinite alternate-reverse}
-.head{animation:bob .55s ease-in-out infinite alternate}
-@keyframes step{from{translate:0 0}to{translate:0 -4px}}@keyframes bob{from{translate:0 0}to{translate:0 1.2px}}"""
+MOTION = """.tongue{transform-box:fill-box;transform-origin:50% 0;animation:pant .5s ease-in-out infinite alternate}
+.earL,.ear{transform-box:fill-box;transform-origin:50% 8%;animation:flick 7s ease-in-out infinite}
+.breath{transform-box:view-box;transform-origin:60px 110px;animation:breathe 3.2s ease-in-out infinite}
+@keyframes pant{to{scale:1 1.2}}
+@keyframes flick{0%,86%,100%{rotate:0deg}89%{rotate:-9deg}92%{rotate:4deg}95%{rotate:-2deg}}
+@keyframes breathe{50%{scale:1 1.015}}"""
+
+
+def front(tilted: bool) -> str:
+    """Sitting, facing you. Tilted: the head cocked to one side (mirror it for the other)."""
+    extra = MOTION + (
+        """.head{transform-box:view-box;transform-origin:60px 60px;rotate:-12deg;animation:cock 4.5s ease-in-out infinite}
+@keyframes cock{0%,100%{rotate:-12deg}50%{rotate:-8deg}}"""
+        if tilted
+        else """.head{transform-box:view-box;transform-origin:60px 60px;animation:sway 6s ease-in-out infinite}
+@keyframes sway{0%,100%{rotate:0deg}30%{rotate:1.5deg}70%{rotate:-1.5deg}}"""
+    )
     return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">{DEFS}{STYLE.replace("%EXTRA%", extra)}{FRONT_BODY}</svg>'
 
-def side_leg(cls, x, top, fill, paw):
-    return f"""<g class="{cls}" style="transform-origin:{x+5.5}px {top}px"><path d="M{x} {top}C{x-1} {top+12} {x} {top+22} {x+.5} {top+30}H{x+11}C{x+11.5} {top+20} {x+12} {top+10} {x+11} {top}Z" fill="{fill}"/>
-<path d="M{x-.5} {top+8}Q{x-3} {top+13} {x-.5} {top+17}" stroke="{fill}" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-<ellipse cx="{x+7}" cy="{top+30.5}" rx="7" ry="3.2" fill="{paw}"/></g>"""
 
-SIDE = f"""
-<g class="tail" style="transform-origin:36px 46px">
- <path d="M38 46C30 43 22 37 16 28C14 25 12 22 13 19C17 23 21 26 26 28C24 31 24 33 27 35C25 37 24 40 27 42C25 45 26 47 29 49C32 50 35 51 38 51Z" fill="#D88A35"/>
- <path class="strand" d="M35 47C29 44 23 39 18 32M33 49C30 47 28 45 27 43"/>
-</g>
-{side_leg("legB", 42, 60, "#C47F35", "#D99A50")}
-{side_leg("legA", 90, 60, "#C47F35", "#D99A50")}
-<path d="M35 49C33 37 46 30 64 30C80 30 94 32 101 39C107 47 106 58 99 64C88 70 58 71 44 68C37 65 36 57 35 49Z" fill="url(#fur)"/>
-<path d="M45 66Q48 73 52 68Q56 74 60 69Q64 75 68 69Q72 74 76 69Q80 73 84 68Q88 72 93 65C82 70 58 71 45 66Z" fill="#E9A957"/>
-<path class="strand" d="M50 38C56 36 62 36 68 37M58 44C64 42 72 42 80 44M46 52C52 50 58 50 64 51"/>
-<path d="M38 44C45 40 55 45 57 55C58 61 55 66 50 68L41 67C36 61 35 51 38 44Z" fill="#C9772A" opacity=".35"/>
-{side_leg("legA", 44, 60, "url(#leg)", "#F5C886")}
-{side_leg("legB", 88, 60, "url(#leg)", "#F5C886")}
-<path d="M85 40C91 27 101 16 113 18L119 40C113 52 99 58 89 54Z" fill="url(#fur)"/>
-<path d="M96 40C100 46 104 50 104 56Q100 54 98 58Q96 54 93 56C93 50 94 45 96 40Z" fill="url(#cream)"/>
-<path d="M95 31C96 37 98 42 101 47" stroke="#2F5BEA" stroke-width="3.6" fill="none" stroke-linecap="round"/>
-<circle cx="101.5" cy="49.5" r="2.4" fill="#FFD166" stroke="#E0A800" stroke-width=".7"/>
-<g class="head">
+# Sitting side-on, facing right (mirror it to face left). The head, ear, chest and
+# collar are the original side drawing's; the body sits on its haunch.
+SIDE_HEAD = f"""
  <ellipse cx="114" cy="25" rx="16" ry="14" fill="url(#fur)"/>
  <path d="M118 21C126 20 134 23 137 27.5C137 33 131 35.5 123 35.5C118 34.5 116 30 118 21Z" fill="url(#cream)"/>
  <path d="M124 33.5C127 38 132 37.5 135 33.5" stroke="#5A3420" stroke-width="1.1" fill="#6B2C28" stroke-linecap="round"/>
- <path d="M126.5 35.5C126.5 40.5 128.5 43.5 131 43C132.6 41.6 132.2 37.6 131.6 35Z" fill="#EE7C8A"/>
- <ellipse cx="136.2" cy="26.6" rx="3.1" ry="2.5" fill="#2A1A12"/><ellipse cx="135.4" cy="25.7" rx="1.1" ry=".6" fill="#fff" opacity=".5"/>
+ <path class="tongue" d="M126.5 35.5C126.5 40.5 128.5 43.5 131 43C132.6 41.6 132.2 37.6 131.6 35Z" fill="#EE7C8A"/>
+ <g class="nose"><ellipse cx="136.2" cy="26.6" rx="3.1" ry="2.5" fill="#2A1A12"/><ellipse cx="135.4" cy="25.7" rx="1.1" ry=".6" fill="#fff" opacity=".5"/></g>
  <path d="M117.5 16.5Q121 14.5 124.5 16.5" stroke="#A9651F" stroke-width="1" fill="none" stroke-linecap="round"/>
  {eye(121.5, 20.5, .8)}
- <path d="M110 12C101 12 98 21 99 31C100 40 103 47 108 47C112 45 112 37 113 29C114 21 114 13 110 12Z" fill="url(#ear)"/>
+ <g class="ear"><path d="M110 12C101 12 98 21 99 31C100 40 103 47 108 47C112 45 112 37 113 29C114 21 114 13 110 12Z" fill="url(#ear)"/>
  <path class="strand" d="M104 20C103 28 103 36 105 43M108 18C107 26 108 36 109 44" style="stroke:#8E5118"/>
- <path d="M102 44Q104 49 106 46Q108 50 110 45" fill="#A45E1E"/>
-</g>"""
+ <path d="M102 44Q104 49 106 46Q108 50 110 45" fill="#A45E1E"/></g>"""
+
+SIDE_SIT = f"""
+<g class="tail" style="transform-origin:34px 104px">
+ <path d="M36 104C28 107 18 107 10 102C7 100 6 97 8 95C12 98 17 99 22 99C20 97 20 95 22 93C25 96 29 98 33 98C32 96 33 94 35 93C37 96 38 99 38 102Z" fill="#D88A35"/>
+ <path class="strand" d="M33 103C26 104 18 103 12 100"/>
+</g>
+<g class="breath">
+<path d="M80 74C79 86 80 96 80.5 104H90C90.5 96 91 86 90 74Z" fill="#C47F35"/><ellipse cx="86" cy="105" rx="7" ry="3.2" fill="#D99A50"/>
+<path d="M30 98C27 80 36 62 56 50C68 43 82 42 90 48C98 56 100 74 98 92C97 100 94 104 90 106L40 106C34 105 31 102 30 98Z" fill="url(#fur)"/>
+<ellipse cx="48" cy="90" rx="21" ry="17" fill="url(#fur)"/>
+<path d="M30 86C34 76 46 72 58 78C64 84 64 96 58 104L38 105C31 101 28 93 30 86Z" fill="#C9772A" opacity=".3"/>
+<path class="strand" d="M38 80C44 76 52 77 57 82M44 62C52 56 62 52 72 51M40 72C46 66 54 62 62 61"/>
+<ellipse cx="62" cy="105.5" rx="10" ry="3.4" fill="#E9A957"/>
+<g class="paw" style="transform-origin:93.5px 72px"><path d="M88 72C87 86 88 96 88.5 104H99C99.5 96 100 86 99 72Z" fill="url(#leg)"/>
+<path d="M87.5 82Q85 87 87.5 91" stroke="url(#leg)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+<ellipse cx="95" cy="105" rx="7" ry="3.2" fill="#F5C886"/></g>
+<path d="M76 52C80 38 88 26 100 26L106 48C102 62 98 72 90 76C82 74 77 64 76 52Z" fill="url(#fur)"/>
+<path d="M92 48C97 55 100 62 100 70Q96 67 94 72Q92 67 89 70C88 62 89 55 92 48Z" fill="url(#cream)"/>
+<path d="M83 37C85 43 88 48 92 53" stroke="#2F5BEA" stroke-width="3.6" fill="none" stroke-linecap="round"/>
+<circle cx="92.5" cy="56" r="2.4" fill="#FFD166" stroke="#E0A800" stroke-width=".7"/>
+</g>
+<g class="head" style="transform-origin:94px 44px"><g transform="translate(-14 4)">{SIDE_HEAD}</g></g>"""
+
 
 def side() -> str:
-    extra = """.legA{transform-box:view-box;animation:swing .6s ease-in-out infinite alternate}
-.legB{transform-box:view-box;animation:swing .6s ease-in-out infinite alternate-reverse}
-.head{animation:bob .6s ease-in-out infinite alternate}
-@keyframes swing{from{rotate:-14deg}to{rotate:14deg}}@keyframes bob{from{translate:0 0}to{translate:0 1.2px}}"""
-    return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 142 100">{DEFS}{STYLE.replace("%EXTRA%", extra)}{SIDE}</svg>'
+    # pants, breathes, blinks, flicks an ear; now and then looks up, sniffs, and lifts a paw
+    extra = MOTION + """.head{transform-box:view-box;animation:look 9s ease-in-out infinite}
+.nose{transform-box:fill-box;transform-origin:center;animation:sniff 9s ease-in-out infinite}
+.paw{transform-box:view-box;animation:lift 13s ease-in-out infinite}
+@keyframes look{0%,18%,100%{rotate:0deg}24%,40%{rotate:-10deg}46%{rotate:0deg}60%,70%{rotate:5deg}76%{rotate:0deg}}
+@keyframes sniff{0%,26%,40%,100%{scale:1}28%,32%,36%{scale:1.15 .9}30%,34%,38%{scale:1}}
+@keyframes lift{0%,80%,100%{rotate:0deg;translate:0 0}84%,92%{rotate:-22deg;translate:2px -6px}}"""
+    return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 142 112">{DEFS}{STYLE.replace("%EXTRA%", extra)}{SIDE_SIT}</svg>'
+
 
 OUT.mkdir(parents=True, exist_ok=True)
 (OUT / "sit.svg").write_text(front(False))
-(OUT / "walk-front.svg").write_text(front(True))
-(OUT / "walk-side.svg").write_text(side())
+(OUT / "sit-tilt.svg").write_text(front(True))
+(OUT / "sit-side.svg").write_text(side())
 print("ok")

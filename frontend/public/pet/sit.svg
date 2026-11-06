@@ -10,7 +10,13 @@
 .lite{fill:none;stroke:#FBE2B0;stroke-width:.8;stroke-linecap:round;opacity:.8}
 @keyframes wag{from{rotate:-7deg}to{rotate:9deg}}
 @keyframes blink{0%,95%,100%{scale:1 1}97.5%{scale:1 .1}}
-
+.tongue{transform-box:fill-box;transform-origin:50% 0;animation:pant .5s ease-in-out infinite alternate}
+.earL,.ear{transform-box:fill-box;transform-origin:50% 8%;animation:flick 7s ease-in-out infinite}
+.breath{transform-box:view-box;transform-origin:60px 110px;animation:breathe 3.2s ease-in-out infinite}
+@keyframes pant{to{scale:1 1.2}}
+@keyframes flick{0%,86%,100%{rotate:0deg}89%{rotate:-9deg}92%{rotate:4deg}95%{rotate:-2deg}}
+@keyframes breathe{50%{scale:1 1.015}}.head{transform-box:view-box;transform-origin:60px 60px;animation:sway 6s ease-in-out infinite}
+@keyframes sway{0%,100%{rotate:0deg}30%{rotate:1.5deg}70%{rotate:-1.5deg}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important}}
 </style>
 <g class="tail" style="transform-origin:84px 104px">
@@ -34,7 +40,7 @@
  <path d="M56 17C57 24 57 30 55 37H65C63 30 63 24 64 17Z" fill="#F4C27C" opacity=".55"/>
  <path class="strand" style="opacity:.3" d="M50 20C48 23 47 26 47 29M70 20C72 23 73 26 73 29"/>
  <path d="M38 44Q34 50 39 52Q36 56 42 56M82 44Q86 50 81 52Q84 56 78 56" fill="#E59A45"/>
- <path d="M42 26C30 25 25 37 26 48C27 58 31 66 37 66C41 63 43 57 45 50C47 42 47 32 42 26Z" fill="url(#ear)"/>
+ <path class="earL" d="M42 26C30 25 25 37 26 48C27 58 31 66 37 66C41 63 43 57 45 50C47 42 47 32 42 26Z" fill="url(#ear)"/>
  <path d="M78 26C90 25 95 37 94 48C93 58 89 66 83 66C79 63 77 57 75 50C73 42 73 32 78 26Z" fill="url(#ear)"/>
  <path class="strand" d="M33 36C31 44 31 52 33 60M38 34C36 42 36 52 37 62M87 36C89 44 89 52 87 60M82 34C84 42 84 52 83 62" style="stroke:#8E5118"/>
  <path d="M30 62Q32 67 35 64Q37 68 39 63M90 62Q88 67 85 64Q83 68 81 63" fill="#A45E1E"/>
@@ -46,7 +52,7 @@
 <circle cx="70.6" cy="34.7" r="1.15" fill="#fff"/><circle cx="68.5" cy="37.2" r="0.5" fill="#fff" opacity=".8"/></g>
  <ellipse cx="60" cy="48.5" rx="12.5" ry="9" fill="url(#cream)"/>
  <path d="M52 53C55 61 65 61 68 53C64 56.5 56 56.5 52 53Z" fill="#6B2C28"/>
- <path d="M55.6 55.6C55 62 57 66.5 60 66.5C63 66.5 65 62 64.4 55.6C62 57.2 58 57.2 55.6 55.6Z" fill="#EE7C8A"/>
+<path class="tongue" d="M55.6 55.6C55 62 57 66.5 60 66.5C63 66.5 65 62 64.4 55.6C62 57.2 58 57.2 55.6 55.6Z" fill="#EE7C8A"/>
  <path d="M60 57.5V64" stroke="#D45E6E" stroke-width=".8" stroke-linecap="round"/>
  <path d="M60 49.5V52.5M49.5 51C53 56 57 56 60 52.5C63 56 67 56 70.5 51" stroke="#5A3420" stroke-width="1.2" fill="none" stroke-linecap="round"/>
  <path d="M53.5 44.2C53.5 41 66.5 41 66.5 44.2C66.5 47.6 62.3 49.8 60 49.8C57.7 49.8 53.5 47.6 53.5 44.2Z" fill="#2A1A12"/>
