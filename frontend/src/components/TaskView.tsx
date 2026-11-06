@@ -65,6 +65,8 @@ export function TaskView({
   onFinished,
   onLiveView,
   onStatus,
+  watching = false,
+  onWatch,
   brief,
   latest = true,
 }: {
@@ -75,6 +77,9 @@ export function TaskView({
   latest?: boolean; // only the newest task in a chat offers Resume / Start over
   onLiveView?: (taskId: string, url: string | null, site?: string) => void;
   onStatus?: (taskId: string, status: TaskStatus) => void;
+  /** The browser runs in the background; its live view shows only when you ask to watch. */
+  watching?: boolean;
+  onWatch?: (taskId: string | null) => void;
 }) {
   const [events, setEvents] = useState<TaskEvent[]>([]);
   const [open, setOpen] = useState(!TERMINAL.includes(initialStatus));
@@ -82,7 +87,6 @@ export function TaskView({
   const [allSteps, setAllSteps] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
-  const [showLive, setShowLive] = useState(false);
   const retryInFlight = useRef(false);
   const lastSeq = useRef(0);
   const finished = useRef(onFinished);
@@ -222,22 +226,36 @@ export function TaskView({
   return (
     <div className="flex flex-col gap-3 text-sm sm:ml-10">
       <div className="card">
-        <button
-          className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left"
-          onClick={() => setOpen((o) => !o)}
-          aria-expanded={open}
-          aria-label={`${STATUS_LABEL[view.status]}: ${view.steps.at(-1) ?? ""}. ${open ? "Hide" : "Show"} ${view.steps.length} steps`}
-        >
-          <StepIcon state={done ? (view.status === "done" ? "ok" : "bad") : view.status === "waiting_user" ? "wait" : "run"} />
-          <span className={`font-medium ${tone}`}>{STATUS_LABEL[view.status]}</span>
-          <span className="truncate text-muted">{view.steps.at(-1)}</span>
-          <span
-            className="ml-auto shrink-0 text-xs text-muted"
-            title={done ? "Steps, time taken and what it cost (AI + browser)" : undefined}
+        <div className="flex items-center">
+          <button
+            className="flex min-w-0 flex-1 items-center gap-2.5 px-4 py-2.5 text-left"
+            onClick={() => setOpen((o) => !o)}
+            aria-expanded={open}
+            aria-label={`${STATUS_LABEL[view.status]}: ${view.steps.at(-1) ?? ""}. ${open ? "Hide" : "Show"} ${view.steps.length} steps`}
           >
-            {facts.join(" · ")} {open ? "▴" : "▾"}
-          </span>
-        </button>
+            <StepIcon state={done ? (view.status === "done" ? "ok" : "bad") : view.status === "waiting_user" ? "wait" : "run"} />
+            <span className={`font-medium ${tone}`}>{STATUS_LABEL[view.status]}</span>
+            <span className="truncate text-muted">{view.steps.at(-1)}</span>
+            <span
+              className="ml-auto shrink-0 text-xs text-muted"
+              title={done ? "Steps, time taken and what it cost (AI + browser)" : undefined}
+            >
+              {facts.join(" · ")} {open ? "▴" : "▾"}
+            </span>
+          </button>
+          {liveUrl && (
+            <button
+              type="button"
+              className="mr-3 flex shrink-0 items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs text-muted hover:border-foreground/30 hover:text-foreground"
+              onClick={() => onWatch?.(watching ? null : taskId)}
+              aria-pressed={watching}
+              title={watching ? "Hide the live browser" : "Watch Hachi's browser live (optional)"}
+            >
+              <span className={`h-1.5 w-1.5 rounded-full bg-ok ${watching ? "" : "animate-pulse"}`} aria-hidden />
+              {watching ? "Hide" : "Watch"}
+            </button>
+          )}
+        </div>
 
         {open && view.steps.length > 0 && (
           <ol className="flex flex-col gap-1.5 border-t border-border px-4 py-3">
@@ -262,21 +280,10 @@ export function TaskView({
           </ol>
         )}
 
-        {/* Narrow screens: live view inline (folded while a card needs you). Wide screens use the side panel. */}
-        {liveUrl && (
+        {/* Only when you choose to watch. Narrow screens show it inline; wide screens use the side panel. */}
+        {liveUrl && watching && (
           <div className="border-t border-border p-3 xl:hidden">
-            {view.activeCard && !showLive ? (
-              <button
-                className="flex w-full items-center gap-2 text-xs text-muted hover:text-foreground"
-                onClick={() => setShowLive(true)}
-              >
-                <span className="h-1.5 w-1.5 rounded-full bg-ok" />
-                Live browser{view.liveSite ? ` · ${view.liveSite}` : ""}
-                <span className="ml-auto underline underline-offset-2">Show</span>
-              </button>
-            ) : (
-              <LiveView url={liveUrl} title={`Hachi is browsing${view.liveSite ? ` ${view.liveSite}` : ""}`} />
-            )}
+            <LiveView url={liveUrl} title={`Hachi is browsing${view.liveSite ? ` ${view.liveSite}` : ""}`} />
           </div>
         )}
 

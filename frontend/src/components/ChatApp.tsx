@@ -77,7 +77,10 @@ export function ChatApp() {
   // Only show what belongs to the open chat (the previous one may still be in state).
   // A chat seen before shows straight from the cache while the fresh copy loads.
   const detail = loaded?.id === activeId ? loaded : activeId ? cachedChat(activeId) : null;
-  const live = liveView && detail?.tasks.some((t) => t.id === liveView.taskId) ? liveView : null;
+  // The browser works in the background; the live panel opens only when you click Watch.
+  const [watchId, setWatchId] = useState<string | null>(null);
+  const live =
+    liveView && watchId === liveView.taskId && detail?.tasks.some((t) => t.id === liveView.taskId) ? liveView : null;
 
   const loadDetail = useCallback(
     (id: string) => loadChat(id).then(setLoaded),
@@ -468,6 +471,8 @@ export function ChatApp() {
                       brief={detail.tasks.find((t) => t.id === m.task_id)}
                       latest={detail.tasks.at(-1)?.id === m.task_id}
                       onLiveView={onLiveView}
+                      watching={watchId === m.task_id}
+                      onWatch={setWatchId}
                       onStatus={onStatus}
                       onFinished={() => {
                         if (activeId) void loadDetail(activeId);
@@ -491,7 +496,7 @@ export function ChatApp() {
           {!empty && composer}
         </main>
 
-        {live && <LivePanel url={live.url} site={live.site} onStop={busy ? stop : undefined} stopping={stopping} />}
+        {live && <LivePanel url={live.url} site={live.site} onStop={busy ? stop : undefined} stopping={stopping} onClose={() => setWatchId(null)} />}
       </div>
   );
 }

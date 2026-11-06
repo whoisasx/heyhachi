@@ -26,11 +26,13 @@ export function LivePanel({
   site,
   onStop,
   stopping,
+  onClose,
 }: {
   url: string;
   site?: string;
   onStop?: () => void;
   stopping?: boolean;
+  onClose?: () => void;
 }) {
   const [width, setWidth] = useState(560);
   const [dragging, setDragging] = useState(false);
@@ -116,6 +118,17 @@ export function LivePanel({
             >
               <span className="h-2 w-2 rounded-[2px] bg-current" aria-hidden />
               {stopping ? "Stopping…" : "Stop"}
+            </button>
+          )}
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Hide the live browser"
+              title="Hide (Hachi keeps working)"
+              className="rounded-md px-2 py-1 text-sm text-muted hover:bg-sunk hover:text-foreground"
+            >
+              ✕
             </button>
           )}
         </span>
