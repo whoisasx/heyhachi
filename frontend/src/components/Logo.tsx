@@ -20,3 +20,28 @@ export function Wordmark({ className = "" }: { className?: string }) {
     </span>
   );
 }
+
+/** A small dog seen from the side. `walking` makes its legs step (CSS: .dog-walk). */
+export function Dog({ size = 12, walking = false, className = "" }: { size?: number; walking?: boolean; className?: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={`${walking ? "dog-walk" : ""} ${className}`}
+      aria-hidden
+    >
+      <path d="M5.2 11.2C4 10.4 3.4 8.8 3.6 7.2" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <ellipse cx="11" cy="12.4" rx="6.4" ry="3.2" />
+      <circle cx="17.8" cy="8.6" r="3" />
+      <ellipse cx="20.6" cy="9.9" rx="1.9" ry="1.3" />
+      <path d="M15.6 6.6 16.4 3.6 18.4 6.2z" />
+      {/* legs step in pairs: back-left with front-right, then the other two */}
+      <rect className="dog-leg-a" x="5.9" y="13.4" width="2" height="6.2" rx="1" />
+      <rect className="dog-leg-b" x="8.6" y="13.4" width="2" height="6.2" rx="1" />
+      <rect className="dog-leg-b" x="12" y="13.4" width="2" height="6.2" rx="1" />
+      <rect className="dog-leg-a" x="14.4" y="13.4" width="2" height="6.2" rx="1" />
+    </svg>
+  );
+}

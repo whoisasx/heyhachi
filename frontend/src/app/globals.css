@@ -654,3 +654,32 @@ main:has(> .page-meadow) {
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--muted) 35%, transparent) transparent;
 }
+
+/* The sidebar's little dog: steps and bobs while Hachi roams. */
+.dog-walk {
+  animation: dog-bob 0.5s ease-in-out infinite;
+}
+.dog-walk .dog-leg-a,
+.dog-walk .dog-leg-b {
+  transform-box: fill-box;
+  transform-origin: 50% 0;
+  animation: dog-step 0.5s ease-in-out infinite alternate;
+}
+.dog-walk .dog-leg-b {
+  animation-direction: alternate-reverse;
+}
+@keyframes dog-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-0.75px); }
+}
+@keyframes dog-step {
+  from { transform: rotate(-16deg); }
+  to { transform: rotate(16deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dog-walk,
+  .dog-walk .dog-leg-a,
+  .dog-walk .dog-leg-b {
+    animation: none;
+  }
+}

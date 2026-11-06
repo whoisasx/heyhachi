@@ -1,17 +1,32 @@
 import { useSyncExternalStore } from "react";
 
-/** Whether Hachi (the pet) roams around. Remembered per browser. */
-const KEY = "hachi:roam";
-const EVENT = "hachi:roam";
-let memory = false; // used when the browser blocks storage
+/**
+ * Hachi (the pet) settings, remembered per browser:
+ * - shown: whether Hachi is on screen at all (default on);
+ * - roam: whether it roams around instead of sitting on the chat box (default off).
+ */
+const EVENT = "hachi:pet";
+const memory: Record<string, boolean> = {}; // used when the browser blocks storage
 
-function read(): boolean {
-  try {
-    const v = localStorage.getItem(KEY);
-    return v === null ? memory : v === "1";
-  } catch {
-    return memory;
-  }
+function store(key: string, fallback: boolean) {
+  const read = (): boolean => {
+    try {
+      const v = localStorage.getItem(key);
+      return v === null ? (memory[key] ?? fallback) : v === "1";
+    } catch {
+      return memory[key] ?? fallback;
+    }
+  };
+  const set = (on: boolean) => {
+    memory[key] = on;
+    try {
+      localStorage.setItem(key, on ? "1" : "0");
+    } catch {
+      // storage blocked: the in-memory value still works for this visit
+    }
+    window.dispatchEvent(new Event(EVENT));
+  };
+  return { read, set };
 }
 
 function subscribe(onChange: () => void) {
@@ -23,16 +38,16 @@ function subscribe(onChange: () => void) {
   };
 }
 
-export function setRoam(on: boolean) {
-  memory = on;
-  try {
-    localStorage.setItem(KEY, on ? "1" : "0");
-  } catch {
-    // storage blocked: the in-memory value still works for this visit
-  }
-  window.dispatchEvent(new Event(EVENT));
+const shown = store("hachi:on", true);
+const roam = store("hachi:roam", false);
+
+export const setPetShown = shown.set;
+export const setRoam = roam.set;
+
+export function usePetShown(): boolean {
+  return useSyncExternalStore(subscribe, shown.read, () => true);
 }
 
 export function useRoam(): boolean {
-  return useSyncExternalStore(subscribe, read, () => false);
+  return useSyncExternalStore(subscribe, roam.read, () => false);
 }

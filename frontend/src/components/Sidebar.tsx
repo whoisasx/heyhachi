@@ -8,9 +8,9 @@ import { signOutAction } from "@/app/actions";
 import { ApiError, api, loadChat } from "@/lib/api";
 import { useConfirm } from "./Confirm";
 import { HachiScene } from "./HachiScene";
-import { Paw, Wordmark } from "./Logo";
+import { Dog, Paw, Wordmark } from "./Logo";
 import { Pet } from "./Pet";
-import { setRoam, useRoam } from "@/lib/pet";
+import { setPetShown, setRoam, usePetShown, useRoam } from "@/lib/pet";
 import { setBackdrop, setTheme, useBackdrop, useThemePref, type ThemePref } from "@/lib/theme";
 
 // ---- signed-in user, shared with pages ------------------------------------------
@@ -57,6 +57,7 @@ export function Shell({ email, name, children }: { email: string; name: string |
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+  const petShown = usePetShown();
 
   // Shortcuts: ⌘K / Ctrl+K search chats, ⌘⇧O / Ctrl+Shift+O new chat, "/" jump to the message box.
   useEffect(() => {
@@ -171,7 +172,7 @@ export function Shell({ email, name, children }: { email: string; name: string |
         </div>
       </div>
       <HachiScene />
-      <Pet />
+      {petShown && <Pet />}
     </UserContext.Provider>
   );
 }
@@ -618,23 +619,48 @@ export function PageSection({
   );
 }
 
-/** Turns Hachi's roaming on and off. */
+/** Shows or hides Hachi; while shown, the little dog beside it turns roaming on and off. */
 function PetSwitch() {
+  const shown = usePetShown();
   const roam = useRoam();
+  const roaming = shown && roam;
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={roam}
-      data-pet="switch"
-      onClick={() => setRoam(!roam)}
-      className="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-foreground/80 hover:bg-sunk"
-    >
-      <Paw size={16} className="text-accent" />
-      <span className="flex-1 text-left">Let Hachi roam</span>
-      <span className={`relative h-4 w-7 shrink-0 rounded-full transition-colors ${roam ? "bg-accent" : "bg-border"}`}>
-        <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-all ${roam ? "left-3.5" : "left-0.5"}`} />
-      </span>
-    </button>
+    <div data-pet="switch" className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-foreground/80">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={shown}
+        onClick={() => setPetShown(!shown)}
+        className="-mx-1 flex flex-1 items-center gap-2.5 rounded-md px-1 py-0.5 hover:bg-sunk"
+        title={shown ? "Hide Hachi" : "Show Hachi"}
+      >
+        <Paw size={16} className={shown ? "text-accent" : "text-muted"} />
+        <span className={`flex flex-1 items-baseline gap-1.5 text-left ${shown ? "" : "text-muted"}`}>
+          Hachi
+          {roaming && <span className="text-[0.7rem] text-accent">roaming</span>}
+        </span>
+        <span className={`relative h-4 w-7 shrink-0 rounded-full transition-colors ${shown ? "bg-accent" : "bg-border"}`}>
+          <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-all ${shown ? "left-3.5" : "left-0.5"}`} />
+        </span>
+      </button>
+      {/* keeps its space while hidden, so the switch doesn't shift */}
+      <button
+        type="button"
+        aria-pressed={roaming}
+        aria-label="Let Hachi roam"
+        title={roaming ? "Hachi is roaming. Click to let it sit." : "Let Hachi roam"}
+        onClick={() => setRoam(!roam)}
+        disabled={!shown}
+        className={`grid h-5 w-5 shrink-0 place-items-center rounded-[5px] border transition-colors ${
+          !shown
+            ? "invisible"
+            : roaming
+              ? "border-accent/40 bg-accent/10 text-accent"
+              : "border-transparent text-muted hover:bg-sunk hover:text-foreground/70"
+        }`}
+      >
+        <Dog size={12} walking={roaming} />
+      </button>
+    </div>
   );
 }
