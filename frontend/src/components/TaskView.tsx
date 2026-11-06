@@ -87,7 +87,9 @@ export function TaskView({
   const [open, setOpen] = useState(false);
   const [stream, setStream] = useState(0); // bumped to reconnect after a resume
   const [allSteps, setAllSteps] = useState(false);
-  const [retrying, setRetrying] = useState(false);
+  // Set from the click until the agent is really back at work (a new "running" status
+  // for Resume, the new task showing for Start over), so the buttons don't look dead.
+  const [retry_, setRetry] = useState<{ mode: "resume" | "restart"; from: number } | null>(null);
   const [retryError, setRetryError] = useState<string | null>(null);
   const retryInFlight = useRef(false);
   const lastSeq = useRef(0);
@@ -178,6 +180,17 @@ export function TaskView({
   const canResume =
     latest && view.status === "failed" && view.error?.retryable && !RESTART_ONLY.includes(view.error.code);
 
+  const backAtWork =
+    retry_?.mode === "resume"
+      ? events.slice(retry_.from).some((e) => e.type === "status" && !TERMINAL.includes(e.data.status as TaskStatus))
+      : !latest; // Start over: the new task has taken this one's place
+  const retrying = retry_ && !backAtWork ? retry_.mode : null;
+  useEffect(() => {
+    if (!retry_) return;
+    const id = setTimeout(() => setRetry(null), 45_000); // never spin forever
+    return () => clearTimeout(id);
+  }, [retry_]);
+
   // Time spent: ticks while running, fixed once finished.
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -197,7 +210,7 @@ export function TaskView({
   async function retry(mode: "resume" | "restart") {
     if (retryInFlight.current) return; // a fast double click would send two requests
     retryInFlight.current = true;
-    setRetrying(true);
+    setRetry({ mode, from: events.length });
     setRetryError(null);
     try {
       await post(`/tasks/${taskId}/retry`, { mode });
@@ -210,9 +223,9 @@ export function TaskView({
       }
     } catch (err) {
       setRetryError(err instanceof ApiError ? err.message : "Couldn't retry.");
+      setRetry(null);
     } finally {
       retryInFlight.current = false;
-      setRetrying(false);
     }
   }
   const tone =
@@ -300,15 +313,28 @@ export function TaskView({
         {(canResume || canRestart) && (
           <div className="flex flex-wrap items-center gap-2 border-t border-border px-4 py-2.5">
             {canResume && (
-              <button className="btn-primary py-1.5" disabled={retrying} onClick={() => retry("resume")}>
-                Resume
+              <button
+                className="btn-primary flex items-center gap-2 py-1.5"
+                disabled={retrying !== null}
+                aria-busy={retrying === "resume"}
+                onClick={() => retry("resume")}
+              >
+                {retrying === "resume" && <Spinner />}
+                {retrying === "resume" ? "Resuming…" : "Resume"}
               </button>
             )}
             {canRestart && (
-              <button className="btn-ghost py-1.5" disabled={retrying} onClick={() => retry("restart")}>
-                Start over
+              <button
+                className="btn-ghost flex items-center gap-2 py-1.5"
+                disabled={retrying !== null}
+                aria-busy={retrying === "restart"}
+                onClick={() => retry("restart")}
+              >
+                {retrying === "restart" && <Spinner />}
+                {retrying === "restart" ? "Starting over…" : "Start over"}
               </button>
             )}
+            {retrying && <span className="text-xs text-muted">Getting Hachi back to work…</span>}
             {retryError && done && <span className="text-xs text-danger">{retryError}</span>}
           </div>
         )}
@@ -346,5 +372,14 @@ function StepIcon({ state, small }: { state: "ok" | "run" | "bad" | "wait"; smal
     >
       {state === "ok" ? "✓" : "!"}
     </span>
+  );
+}
+
+function Spinner() {
+  return (
+    <span
+      className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent"
+      aria-hidden
+    />
   );
 }
