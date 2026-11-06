@@ -39,7 +39,8 @@ const BOX: Record<Pose, [number, number, number]> = {
 };
 const SPEED = 60; // px per second: an easy glide
 const REST = [3000, 8000]; // ms to sit between wanders
-const POSE_EVERY = [3500, 7000]; // ms between pose changes while sitting
+// ms between pose changes while sitting: often when roaming, now and then on the chat box
+const POSE_EVERY = { roam: [3000, 6000], home: [10000, 18000] };
 const IDLE: [Pose, Face][] = [
   ["front", 1],
   ["tilt", 1],
@@ -188,6 +189,7 @@ export function Pet() {
   useEffect(() => {
     if (!resting || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     let t: ReturnType<typeof setTimeout>;
+    const [lo, hi] = roam ? POSE_EVERY.roam : POSE_EVERY.home;
     const next = () => {
       t = setTimeout(
         () => {
@@ -200,12 +202,12 @@ export function Pet() {
           });
           next();
         },
-        POSE_EVERY[0] + Math.random() * (POSE_EVERY[1] - POSE_EVERY[0]),
+        lo + Math.random() * (hi - lo),
       );
     };
     next();
     return () => clearTimeout(t);
-  }, [resting]);
+  }, [resting, roam]);
 
   // a faint sparkle trail while gliding
   const gliding = !!view && view.shown && view.gliding;
@@ -228,7 +230,6 @@ export function Pet() {
   }, [petted]);
 
   if (!view) return null;
-  const [w, h, feet] = BOX[view.pose];
   return (
     <>
       {sparkles.map((s) => (
@@ -252,26 +253,27 @@ export function Pet() {
               ♥
             </span>
           )}
-          {/* eslint-disable-next-line @next/next/no-img-element -- tiny animated SVGs; next/image would strip the animation */}
-          <img
-            key={view.pose}
-            src={SRC[view.pose]}
-            alt="Hachi"
-            title="Hachi"
-            width={w}
-            height={h}
-            draggable={false}
-            onClick={() => setPetted(Date.now())}
-            style={{ left: -w / 2, top: -h * feet, scale: view.face === -1 && view.pose !== "front" ? "-1 1" : undefined }}
-          />
+          {/* every pose is drawn, stacked; only the current one shows, so a change is a soft cross-fade */}
+          {IDLE.map(([pose, f]) => {
+            const [w, h, feet] = BOX[pose];
+            const on = pose === view.pose && (pose === "front" || f === view.face);
+            return (
+              // eslint-disable-next-line @next/next/no-img-element -- tiny animated SVGs; next/image would strip the animation
+              <img
+                key={`${pose}${f}`}
+                src={SRC[pose]}
+                alt={on ? "Hachi" : ""}
+                title={on ? "Hachi" : undefined}
+                width={w}
+                height={h}
+                draggable={false}
+                className={on ? "pet-on" : undefined}
+                onClick={on ? () => setPetted(Date.now()) : undefined}
+                style={{ left: -w / 2, top: -h * feet, scale: f === -1 ? "-1 1" : undefined }}
+              />
+            );
+          })}
         </div>
-      </div>
-      {/* load every pose up front so switching never flickers */}
-      <div hidden>
-        {Object.values(SRC).map((s) => (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img key={s} src={s} alt="" />
-        ))}
       </div>
     </>
   );
