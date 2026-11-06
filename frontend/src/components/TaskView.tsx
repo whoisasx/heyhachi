@@ -82,7 +82,8 @@ export function TaskView({
   onWatch?: (taskId: string | null) => void;
 }) {
   const [events, setEvents] = useState<TaskEvent[]>([]);
-  const [open, setOpen] = useState(!TERMINAL.includes(initialStatus));
+  // Steps stay folded: the header already shows the current one. Click it to see them all.
+  const [open, setOpen] = useState(false);
   const [stream, setStream] = useState(0); // bumped to reconnect after a resume
   const [allSteps, setAllSteps] = useState(false);
   const [retrying, setRetrying] = useState(false);
@@ -200,8 +201,7 @@ export function TaskView({
     try {
       await post(`/tasks/${taskId}/retry`, { mode });
       if (mode === "resume") {
-        setFinishedOnOpen(false); // live again: show its status and live view
-        setOpen(true);
+        setFinishedOnOpen(false); // live again: show its status
         setStream((n) => n + 1); // same task: listen again from the last event
         finished.current(); // refresh the chat so it knows a task is running again
       } else {
