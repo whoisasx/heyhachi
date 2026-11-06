@@ -35,4 +35,4 @@ A short note on how the assistant handles the user's access to websites, why, an
 - **A Google login is powerful.** It can reset passwords elsewhere, and Google may challenge or end a session that shows up in a cloud browser, so it may need logging in again. It's never used without a per-task approval.
 - **Single backend process.** Tasks live in one process; restarts are recovered from checkpoints, but scaling out needs a job queue.
 - **No per-site permission scopes.** Access to a site is all-or-nothing; there's no "read-only" grant yet.
-- **Google sign-in shows an "unverified app" notice** until Google verifies the app (it only asks for name and email).
+- **Google sign-in to Hachi asks only for name and email.** The app is published; asking for more (e.g. Gmail access) would need Google's review.

@@ -2,7 +2,7 @@
 
 Manual end-to-end runs against the deployed app (real Claude, real browser). Run before the demo and after any risky change. Each row says what to do, what should happen, and what it proves.
 
-Status: **first live run on 2026-11-05** (results below). Automated coverage of the same logic: 114 backend tests (`cd backend && uv run pytest`).
+Status: **live runs on 2026-11-05 and 2026-11-06** (results below). Automated coverage of the same logic: 131 backend tests (`cd backend && uv run pytest`).
 
 | # | Task | Expected | Proves |
 |---|---|---|---|
@@ -25,8 +25,8 @@ Status: **first live run on 2026-11-05** (results below). Automated coverage of 
 
 ## Results
 
-| # | Result (2026-11-05, live site) | Notes |
-|---|---|---|---|
+| # | Result (live site, 2026-11-05 unless noted) | Notes |
+|---|---|---|
 | 1 | Pass | "About 120k"; GitHub API says 120,081. Steps streamed; live view showed in the chat. |
 | 2 | Pass | Connect card before any action. |
 | 3 | Pass after fix | First run crashed saving cookies (browser-use closed the browser first); fixed by reading cookies in the done callback. Resume then found the repo already starred and didn't click again. |
@@ -60,7 +60,7 @@ Status: **first live run on 2026-11-05** (results below). Automated coverage of 
 
 A fake website, served by the backend only when `ENVIRONMENT=development` ([app/testshop.py](../backend/app/testshop.py)), checks that every kind of saved access reaches a site correctly. No real accounts are needed.
 
-1. Start the backend (`backend-visible` in `.claude/launch.json`, or `uv run uvicorn app.main:app --port 8000`) and the frontend.
+1. Start the backend (`cd backend && uv run uvicorn app.main:app --port 8000`, with `ENVIRONMENT=development`) and the frontend.
 2. Open http://testshop.localhost:8000/testshop/setup for the fake test values.
 3. On the Vault page, save them for the site `testshop.localhost`: Credentials, 2FA authenticator key, API key, Payment card.
 4. In a new chat:

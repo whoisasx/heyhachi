@@ -22,9 +22,17 @@ Status: built, deployed and tested live (see [RELIABILITY.md](docs/RELIABILITY.m
 - [Architecture](docs/ARCHITECTURE.md): components, task lifecycle, data model, crash recovery, secrets
 - [Schema](docs/SCHEMA.md): database tables, JSON shapes, event types
 - [API](docs/API.md): HTTP routes, SSE stream, auth, errors
-- [Access management](docs/ACCESS.md): choices and known limits
+- [Access management](docs/ACCESS.md): choices and known limits (secrets, cookies, Google login)
 - [Reliability test list](docs/RELIABILITY.md): manual end-to-end checks and results
 - [Demo script](docs/DEMO.md): the ~2-minute recording
+
+## Known limits
+
+Access and secrets: see [ACCESS.md](docs/ACCESS.md#known-limits). The rest:
+
+- **Live view shape.** The cloud browser's window is fixed (1920×911), so in a tall side panel the page leaves space below it; **Full screen** shows it large.
+- **Long sites cost more.** Some flows (Swiggy re-orders) take 30+ steps and can reach the $1 per-task limit.
+- **Cloud browser sessions** last at most 15 minutes (Browser Use free plan), which caps one browser step.
 
 ## Stack
 
@@ -66,7 +74,7 @@ npm run dev                   # http://localhost:3000
 
 ```bash
 cd backend
-uv run pytest                 # 114 tests; needs `docker compose up -d`
+uv run pytest                 # 131 tests; needs `docker compose up -d`
 uv run ruff check . && uv run ruff format --check .
 ```
 
