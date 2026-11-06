@@ -5,6 +5,11 @@ import { useEffect, useRef, useState } from "react";
 const KEY = "hachi:live-width-v2"; // v2: the default got wider
 const MIN = 360;
 const maxWidth = () => Math.max(MIN, Math.round(window.innerWidth * 0.7));
+// The cloud browser streams a wide page (about 1920 x 800) under its own tab and address
+// bars. Sizing the frame to that shape leaves no blank space below the page.
+const PAGE_RATIO = 0.42; // page height / width
+const BARS = 76; // the viewer's tab and address bars, px
+
 // About half the window: big enough to read the page Hachi is on.
 const defaultWidth = () => Math.min(maxWidth(), Math.max(MIN, Math.round(window.innerWidth * 0.46)));
 
@@ -36,7 +41,28 @@ export function LivePanel({
 }) {
   const [width, setWidth] = useState(560);
   const [dragging, setDragging] = useState(false);
+  const [big, setBig] = useState(false); // full screen
+  const [area, setArea] = useState<{ w: number; h: number } | null>(null);
+  const areaRef = useRef<HTMLDivElement>(null);
   const latest = useRef(width);
+
+  // the room left in the panel, so the frame can take the stream's shape within it
+  useEffect(() => {
+    const el = areaRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setArea({ w: e.contentRect.width, h: e.contentRect.height }));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!big) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setBig(false);
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [big]);
+  // the frame's height: the stream's shape, but never past the room above the hint (28px)
+  const fit = area ? Math.round(Math.min(area.h - 28, area.w * PAGE_RATIO + BARS)) : undefined;
 
   useEffect(() => {
     const w = Math.min(savedWidth(), maxWidth());
@@ -109,6 +135,17 @@ export function LivePanel({
           <a href={url} target="_blank" rel="noopener noreferrer" className="rounded-md px-2 py-1 text-xs text-muted hover:bg-sunk hover:text-foreground">
             New tab ↗
           </a>
+          <button
+            type="button"
+            onClick={() => setBig(true)}
+            className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted hover:bg-sunk hover:text-foreground"
+            title="Show the live browser over the whole window"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+            </svg>
+            Full screen
+          </button>
           {onStop && (
             <button
               type="button"
@@ -134,14 +171,56 @@ export function LivePanel({
         </span>
       </div>
       <div className="flex min-h-0 flex-1 flex-col p-4">
-        <iframe
-          src={url}
-          title="Live browser"
-          // while dragging, the iframe would swallow the mouse and stop the resize
-          className={`min-h-[280px] w-full flex-1 rounded-xl border border-border bg-surface ${dragging ? "pointer-events-none" : ""}`}
-          sandbox="allow-scripts allow-same-origin allow-forms"
-        />
-        <p className="mt-3 text-xs text-muted">You can click and type in this browser to help. Drag its left edge to resize.</p>
+        <div ref={areaRef} className="min-h-[200px] flex-1">
+          {big && <div className="fixed inset-0 z-[55] bg-black/40 backdrop-blur-sm" onMouseDown={() => setBig(false)} aria-hidden />}
+          {/* the same iframe in both views (only its box changes), so going full screen doesn't reload the browser */}
+          <div
+            role={big ? "dialog" : undefined}
+            aria-modal={big || undefined}
+            aria-label={big ? "Live browser, full screen" : undefined}
+            className={
+              big
+                ? "fixed inset-x-[2vw] inset-y-[3vh] z-[60] flex flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-[0_30px_90px_rgba(0,0,0,0.35)]"
+                : "overflow-hidden rounded-xl border border-border bg-surface"
+            }
+            style={big ? undefined : { height: fit }}
+          >
+            {big && (
+              <div className="flex items-center gap-2 border-b border-border px-4 py-2">
+                <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-accent" />
+                <span className="text-sm font-medium">Hachi is browsing{site ? ` ${site}` : ""}</span>
+                <span className="ml-auto flex items-center gap-1">
+                  {onStop && (
+                    <button
+                      type="button"
+                      onClick={onStop}
+                      disabled={stopping}
+                      className="flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs font-medium hover:border-danger hover:text-danger disabled:opacity-50"
+                    >
+                      <span className="h-2 w-2 rounded-[2px] bg-current" aria-hidden />
+                      {stopping ? "Stopping…" : "Stop"}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setBig(false)}
+                    className="rounded-md px-2 py-1 text-xs text-muted hover:bg-sunk hover:text-foreground"
+                  >
+                    Exit full screen <span className="text-muted/70">Esc</span>
+                  </button>
+                </span>
+              </div>
+            )}
+            <iframe
+              src={url}
+              title="Live browser"
+              // while dragging, the iframe would swallow the mouse and stop the resize
+              className={`block w-full ${big ? "min-h-0 flex-1" : "h-full"} ${dragging ? "pointer-events-none" : ""}`}
+              sandbox="allow-scripts allow-same-origin allow-forms"
+            />
+          </div>
+          <p className="mt-3 text-xs text-muted">You can click and type in this browser to help. Drag the panel&apos;s left edge to resize.</p>
+        </div>
       </div>
     </aside>
   );
