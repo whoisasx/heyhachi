@@ -4,6 +4,8 @@ A chat assistant that does tasks on real websites using a background cloud brows
 
 **Live:** https://heyhachi.vercel.app (sign in with Google).
 
+**Demo video (2 min):** https://drive.google.com/file/d/1-CXT7dfgEn4cBfU9mkjhj4nuRunDRxY9/view
+
 Status: built, deployed and tested live (see [RELIABILITY.md](docs/RELIABILITY.md)). The access-management note is [ACCESS.md](docs/ACCESS.md).
 
 ## What it does
@@ -110,3 +112,7 @@ frontend/            Next.js 16 app: sign-in, chat, task cards, Vault, Profile, 
   scripts/pet.py     draws Hachi's SVG poses into public/pet/
 docs/                plan, architecture, schema, API, access note, reliability, demo
 ```
+
+## Credits
+
+Music in the demo video: “Clean Soul” by Kevin MacLeod (incompetech.com), licensed under CC BY 4.0.

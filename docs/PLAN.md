@@ -2,7 +2,7 @@
 
 A chat assistant that does tasks on real websites using a background cloud browser, and manages the user's access to those sites safely (passwords, 2FA, OTPs, API keys, saved sessions, revocation).
 
-Status: all phases done and deployed at https://heyhachi.vercel.app. Left: the demo video.
+Status: all phases done and deployed at https://heyhachi.vercel.app. Demo video: https://drive.google.com/file/d/1-CXT7dfgEn4cBfU9mkjhj4nuRunDRxY9/view
 
 ---
 
@@ -126,5 +126,5 @@ After that: rebrand to **Hachi** with the domain https://heyhachi.vercel.app (th
 
 - [x] Runnable repo: https://github.com/whoisasx/heyhachi (setup in the README)
 - [x] Deployed link: https://heyhachi.vercel.app
-- [ ] ~2-minute demo video (script: [DEMO.md](DEMO.md))
+- [x] ~2-minute demo video: https://drive.google.com/file/d/1-CXT7dfgEn4cBfU9mkjhj4nuRunDRxY9/view (script: [DEMO.md](DEMO.md))
 - [x] Short note on access-management choices and known limits: [ACCESS.md](ACCESS.md)
