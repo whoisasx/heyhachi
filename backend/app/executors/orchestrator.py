@@ -14,6 +14,7 @@ from typing import Any
 
 import anthropic
 
+from app import testshop
 from app.browser_sessions import normalize_site
 from app.config import Settings
 from app.executors.api import ApiCaller
@@ -300,6 +301,15 @@ def _initial_messages(history: list[dict[str, Any]], request: str) -> list[dict[
     return [*turns, {"role": "user", "content": request}]
 
 
+# Development only: the fake shop used to check the vault end to end (app/testshop.py).
+TESTSHOP_NOTE = (
+    "\n\nDevelopment test site: Hachi Test Shop, site testshop.localhost, website "
+    f"{testshop.URL} (sign in, then a 2FA code, then checkout). Its API works with "
+    "call_api: site testshop.localhost, GET /whoami. It's fake; nothing is charged, but "
+    "still confirm_action before placing an order.\n"
+)
+
+
 class Orchestrator:
     def __init__(
         self, llm: LLM, browser: BrowserAgent, settings: Settings, api: ApiCaller | None = None
@@ -308,6 +318,7 @@ class Orchestrator:
         self.browser = browser
         self.settings = settings
         self.api = api or ApiCaller(settings)
+        self.system = SYSTEM_PROMPT + (TESTSHOP_NOTE if testshop.enabled(settings) else "")
 
     async def run(self, ctx: TaskContext) -> None:
         checkpoint = dict(ctx.checkpoint)
@@ -359,7 +370,7 @@ class Orchestrator:
 
     async def _call_llm(self, messages: list[dict[str, Any]]):
         try:
-            return await self.llm.create(system=SYSTEM_PROMPT, messages=messages, tools=TOOLS)
+            return await self.llm.create(system=self.system, messages=messages, tools=TOOLS)
         except (
             anthropic.APIConnectionError,
             anthropic.RateLimitError,
@@ -377,14 +388,15 @@ class Orchestrator:
                 retryable=True,
             ) from exc
         except anthropic.BadRequestError as exc:
-            if "usage limit" not in str(exc).lower():
+            text = str(exc).lower()
+            if "usage limit" in text:
+                message = "The AI service's usage limit was reached. Try again once it's raised."
+            elif "credit balance" in text:
+                message = "The AI service is out of credit. Try again once it's topped up."
+            else:
                 raise
-            log.error("LLM usage limit reached: %s", exc)
-            raise TaskFailed(
-                "upstream_limit",
-                "The AI service's usage limit was reached. Try again once it's raised.",
-                retryable=True,
-            ) from exc
+            log.error("LLM limit reached: %s", exc)
+            raise TaskFailed("upstream_limit", message, retryable=True) from exc
 
     async def _run_tools(
         self, ctx: TaskContext, checkpoint: dict[str, Any], tool_uses: list[dict[str, Any]]

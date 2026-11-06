@@ -3,6 +3,7 @@
 import json
 from typing import Any
 
+import pytest
 from sqlalchemy import text
 
 from app.executors.browser import UnavailableBrowser
@@ -264,7 +265,14 @@ async def test_follow_up_sees_what_earlier_replies_were_based_on(make_client):
     )
 
 
-async def test_ai_usage_limit_is_a_clear_error(make_client):
+@pytest.mark.parametrize(
+    ("api_message", "shown"),
+    [
+        ("You have reached your specified API usage limits.", "usage limit"),
+        ("Your credit balance is too low to access the Anthropic API.", "out of credit"),
+    ],
+)
+async def test_ai_usage_limit_is_a_clear_error(make_client, api_message, shown):
     import anthropic
     import httpx
 
@@ -272,7 +280,7 @@ async def test_ai_usage_limit_is_a_clear_error(make_client):
         async def create(self, *, system, messages, tools):
             request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
             raise anthropic.BadRequestError(
-                "You have reached your specified API usage limits.",
+                api_message,
                 response=httpx.Response(400, request=request),
                 body=None,
             )
@@ -281,4 +289,4 @@ async def test_ai_usage_limit_is_a_clear_error(make_client):
     _, task_id = await start_task(client, "anything")
     task = await wait_for_status(client, task_id, "failed")
     assert task["error"]["code"] == "upstream_limit"
-    assert "usage limit" in task["error"]["message"]
+    assert shown in task["error"]["message"]

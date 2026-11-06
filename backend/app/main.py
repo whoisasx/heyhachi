@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app import testshop
 from app.browser_sessions import SessionStore
 from app.config import Settings, get_settings
 from app.crypto import Vault, load_master_key
@@ -115,6 +116,8 @@ def create_app(settings: Settings | None = None, executor: Executor | None = Non
     install_error_handlers(app)
     for module in (users, conversations, tasks, vault_routes):
         app.include_router(module.router, prefix="/v1")
+    if testshop.enabled(settings):  # fake website for vault checks; never in production
+        app.include_router(testshop.router)
     return app
 
 

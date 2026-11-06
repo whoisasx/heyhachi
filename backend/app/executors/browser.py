@@ -21,6 +21,7 @@ from typing import Any, Protocol
 
 import certifi
 
+from app import testshop
 from app.browser_sessions import SessionStore
 from app.config import Settings
 from app.crypto import Vault, load_master_key
@@ -39,6 +40,14 @@ os.environ.setdefault("SSL_CERT_FILE", certifi.where())
 log = logging.getLogger(__name__)
 
 LOGIN_REQUIRED = "LOGIN_REQUIRED"
+
+
+def secret_scope(site: str, settings: Settings) -> str:
+    """Where saved secrets may be typed: https pages of the site and its subdomains.
+    The one exception is the dev-only test shop, which is served over plain http."""
+    if site == testshop.SITE and testshop.enabled(settings):
+        return f"http://*.{site}"
+    return f"https://*.{site}"
 
 
 def browser_rules(placeholders: list[str], details: str = "") -> str:
@@ -249,7 +258,7 @@ class BrowserUseAgent:
         typed = {profile_placeholder(f): details[f] for f in HIDDEN if f in details}
         # Secrets are only typed on this site and its subdomains (not lookalikes).
         sensitive = {**secrets, **typed}
-        scoped = {f"https://*.{site}": sensitive}
+        scoped = {secret_scope(site, self.settings): sensitive}
 
         tools = Tools(
             # No arbitrary page JavaScript: riskier, and needless for these tasks.

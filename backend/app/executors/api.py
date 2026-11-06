@@ -14,6 +14,7 @@ from typing import Any
 
 import httpx
 
+from app import testshop
 from app.config import Settings
 from app.crypto import Vault, load_master_key
 from app.runner import TaskContext
@@ -25,6 +26,14 @@ log = logging.getLogger(__name__)
 API_BASES: dict[str, str] = {
     "openrouter.ai": "https://openrouter.ai/api/v1",
 }
+
+
+def api_bases(settings: Settings) -> dict[str, str]:
+    """Allowlisted API bases; the dev-only test shop is added in development."""
+    if testshop.enabled(settings):
+        return {**API_BASES, testshop.SITE: testshop.API_BASE}
+    return API_BASES
+
 
 MAX_BODY_CHARS = 4000  # keep tool results small for the model
 
@@ -43,13 +52,14 @@ class ApiCaller:
     async def call(
         self, ctx: TaskContext, *, site: str, method: str, path: str, body: Any
     ) -> dict[str, Any]:
-        base = API_BASES.get(site)
+        bases = api_bases(self.settings)
+        base = bases.get(site)
         if base is None:
             return {
                 "ok": False,
                 "error": "no_api_support",
                 "message": f"No API support for {site}. Use run_browser_task instead. "
-                f"Supported: {sorted(API_BASES)}.",
+                f"Supported: {sorted(bases)}.",
             }
         method = method.upper()
         if method not in ("GET", "POST"):

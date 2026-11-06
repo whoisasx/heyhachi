@@ -53,3 +53,19 @@ Status: **first live run on 2026-11-05** (results below). Automated coverage of 
 - Requests time out after 20 s with an error and a "Try again" button (chat and Vault) instead of loading forever.
 - Follow-up tasks get a short note of the tools behind earlier replies, so they no longer falsely "correct" checked answers or re-ask answered questions.
 - Not fixed: Swiggy runs are long (30+ steps) and can hit the $1 task limit.
+
+## Vault check on localhost (Hachi Test Shop)
+
+A fake website, served by the backend only when `ENVIRONMENT=development` ([app/testshop.py](../backend/app/testshop.py)), checks that every kind of saved access reaches a site correctly. No real accounts are needed.
+
+1. Start the backend (`backend-visible` in `.claude/launch.json`, or `uv run uvicorn app.main:app --port 8000`) and the frontend.
+2. Open http://testshop.localhost:8000/testshop/setup for the fake test values.
+3. On the Vault page, save them for the site `testshop.localhost`: Credentials, 2FA authenticator key, API key, Payment card.
+4. In a new chat:
+   - *Use my saved API key to check which account I am on the Hachi Test Shop API* → `call_api` with the key added by the backend.
+   - *Sign in to the Hachi Test Shop and buy the plush toy with my saved card* → password, a 2FA code generated from the setup key, a Confirm card, then checkout.
+5. Open http://testshop.localhost:8000/testshop/log: each check (password, 2fa, api_key, card) shows pass or fail, with values masked.
+
+Two dev-only exceptions make this work, both covered by `tests/test_testshop.py`: secrets may be typed on `http://` pages of this one site (everywhere else it's `https://` only), and `call_api` may call its API. In production the shop isn't mounted and neither exception applies.
+
+Result (2026-11-06): the Vault page saved all four kinds, showed only masked labels (`hac…`, `Authenticator app`, `ts_te…8c0e`, `Card ••4242`), rejected a bad 2FA key and a card number that fails the checksum, logged each addition, and the database held no plain values. The live agent run is pending: the local Anthropic API account ran out of credit.
