@@ -68,4 +68,11 @@ A fake website, served by the backend only when `ENVIRONMENT=development` ([app/
 
 Two dev-only exceptions make this work, both covered by `tests/test_testshop.py`: secrets may be typed on `http://` pages of this one site (everywhere else it's `https://` only), and `call_api` may call its API. In production the shop isn't mounted and neither exception applies.
 
-Result (2026-11-06): the Vault page saved all four kinds, showed only masked labels (`hac…`, `Authenticator app`, `ts_te…8c0e`, `Card ••4242`), rejected a bad 2FA key and a card number that fails the checksum, logged each addition, and the database held no plain values. The live agent run is pending: the local Anthropic API account ran out of credit.
+Result (2026-11-06): the Vault page saved all four kinds, showed only masked labels (`hac…`, `Authenticator app`, `ts_te…8c0e`, `Card ••4242`), rejected a bad 2FA key and a card number that fails the checksum, logged each addition, and the database held no plain values.
+
+Live agent run (2026-11-06, local, real Claude, visible Chrome): all four kinds passed on the shop's log. The API key check answered through `call_api`; the agent signed in with the password and a 2FA code, showed a Confirm card before paying, and the card checkout passed (order TS-651956, about $0.35 of AI use). The database had no secret values in tasks, events or messages afterwards. The run found four bugs, all fixed with tests in `tests/test_browser_output.py`:
+
+- the browser model's report repeated the full card number: what leaves a browser step (progress lines, the final report, errors) is now scrubbed of saved values, card numbers also with spaces or dashes;
+- browser-use's own step logs (Eval, Memory, Final Result) printed the card number to server logs: its loggers are now kept at WARNING;
+- the second browser step started on `https://` for the http-only test site: steps now start from the site's right address;
+- a site that didn't load was reported as "login required" and expired a good saved login: it's now `SITE_UNREACHABLE`, the login is kept, and the user is told to resume later.

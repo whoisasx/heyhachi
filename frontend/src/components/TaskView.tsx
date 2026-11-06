@@ -30,6 +30,7 @@ const NEXT_STEP: Record<string, string> = {
   too_many_attempts: "It failed several times in a row. Try again in a while, or rephrase the request.",
   waiting_timeout: "I waited too long for your answer. Resume to pick up where I left off.",
   access_revoked: "Access to the site was removed. Reconnect it in the Vault, then start over.",
+  site_unreachable: "The site didn't load. Your saved login is kept. Resume to try again later.",
   internal_error: "Resume to try again from the last step, or start over.",
 };
 

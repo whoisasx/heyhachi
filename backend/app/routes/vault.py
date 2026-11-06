@@ -102,7 +102,7 @@ class LiveLoginIn(BaseModel):
 
 
 def _live_error(exc: LiveLoginError) -> APIError:
-    status = {"not_found": 404, "not_logged_in": 409, "browser_unavailable": 503}[exc.code]
+    status = {"not_found": 404, "not_logged_in": 409, "browser_unavailable": 503}.get(exc.code, 502)
     return APIError(status, exc.code, str(exc))
 
 

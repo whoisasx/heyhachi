@@ -18,6 +18,7 @@ from typing import Any
 
 from app.browser_sessions import SessionStore, same_site
 from app.config import Settings
+from app.executors.browser import start_url
 
 log = logging.getLogger(__name__)
 
@@ -62,15 +63,17 @@ class LiveLoginManager:
         stack = AsyncExitStack()
         try:
             handle = await stack.enter_async_context(launcher.open(None, site=site, visible=True))
-            await handle.session.navigate_to(f"https://{site}")
+            await handle.session.navigate_to(start_url(site, self.settings))
         except BrowserUnavailable as exc:
             await stack.aclose()
             raise LiveLoginError(
                 "browser_unavailable", "The browser service is unavailable."
             ) from exc
-        except Exception:
+        except Exception as exc:
             await stack.aclose()
-            raise
+            raise LiveLoginError(
+                "site_unreachable", f"{site} wouldn't load. Try again later."
+            ) from exc
         login = _Login(
             id=uuid.uuid4(),
             user_id=user_id,
