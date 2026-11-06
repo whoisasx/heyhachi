@@ -21,6 +21,7 @@ Status: **first live run on 2026-11-05** (results below). Automated coverage of 
 | 13 | Restart the backend right after approving an order | On recovery the site is checked read-only; the order is never placed twice | Idempotency markers |
 | 14 | A task that loops (e.g. an impossible search) | Stops with a step, time or cost limit; **Start over** offered | Limits |
 | 15 | Refresh the page mid-task, or open the chat on another device | Steps replay without gaps or duplicates; live updates continue | Event replay (SSE resume) |
+| 16 | With google.com connected (and vercel.com not): "Sign in to vercel.com with my Google account and list my projects. Don't change anything." | A **Sign in to vercel.com with Google?** card before Google is used; after Approve, signed in and the project list; vercel.com and google.com saved as separate logins | "Sign in with Google" only on approval; each saved login keeps only its own site's cookies |
 
 ## Results
 
@@ -41,6 +42,7 @@ Status: **first live run on 2026-11-05** (results below). Automated coverage of 
 | 13 | Not run live | Needs a real irreversible action; covered by `test_interrupted_action_is_checked_not_repeated`. |
 | 14 | Pass | The Swiggy run stopped with "This task hit its spending limit"; only Start over offered. |
 | 15 | Pass | Reload mid-task: steps replayed without gaps or duplicates; live updates and the final reply continued. |
+| 16 | Pass (2026-11-06) | Google connected through **Log in myself** in the Vault. The task stopped at Vercel's "Continue with Google" with the approval card; after Approve it reached the dashboard and listed all 7 projects (7 steps, 1 min 39 s, $0.27). It dismissed a 2FA reminder and changed nothing. The Vault then showed vercel.com and google.com as two separate saved logins, and the activity log "Login used by a task · google.com". |
 
 ### Found during the run (fixed the same day unless noted)
 
