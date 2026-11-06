@@ -220,7 +220,6 @@ export function ChatApp() {
   useEffect(() => {
     if (!draft && input.current) input.current.style.height = "";
   }, [draft]);
-  const hint = useTypewriter(!draft && !busy);
 
   const title = detail?.title;
   const topbarSlot = useSyncExternalStore(
@@ -248,6 +247,8 @@ export function ChatApp() {
   // While the first message of a new chat is sending, stay on that screen.
   const firstSend = sending && !detail?.messages.length;
   const empty = firstSend || ((!activeId || (detail !== null && !detail.messages.length)) && !sending);
+  // Example tasks type themselves out only on the new-chat screen; inside a chat the box stays still.
+  const hint = useTypewriter(empty && !draft && !busy);
   // Show "Working…" under the chat while a task runs and isn't waiting on the user.
   const working = busy && !needsYou;
 
@@ -338,7 +339,7 @@ export function ChatApp() {
                   send(e);
                 }
               }}
-              placeholder={busy ? "Hachi is on it. You can write your next message…" : hint}
+              placeholder={busy ? "Hachi is on it. You can write your next message…" : empty ? hint : "Ask Hachi anything else…"}
               readOnly={sending}
               maxLength={4000}
             />
