@@ -85,7 +85,7 @@ flowchart TB
   - **Confirm action** (before anything irreversible)
   - **Retry / Resume**
 - Embedded **live browser view** while a task runs.
-- **Connected accounts** page: list (metadata only) and revoke.
+- **Vault** page (first called Connected accounts): list (metadata only), remove and revoke, audit log.
 - Holds **no secrets and no business logic**. Secure inputs post straight to the backend and are never added to chat history.
 - In local development a dev-only email sign-in is available (`AUTH_DEV_LOGIN=1`, never in production builds), and the "live view" is a visible Chrome window on the dev machine.
 
@@ -395,3 +395,4 @@ Workers are a **pool of long-running processes**, each running many tasks — no
 | 2026-11-05 | Phase 4.5 built: Next.js 16 frontend (chat, live task panel over SSE, cards, Connected accounts) and standalone live-login routes. Dev-only email sign-in until the Google OAuth client exists. |
 | 2026-11-05 | Google OAuth client created (testing mode, one test user); Google sign-in verified locally. Production redirect URI is added at deploy. |
 | 2026-11-05 | Phase 4.6 built: retry route (resume / restart) with Resume / Start over buttons, 10-minute working-time limit, idempotency markers around approved irreversible actions (an interrupted one is checked read-only, never repeated). |
+| 2026-11-06 | Renamed to Hachi (https://heyhachi.vercel.app); Connected accounts page is now Vault; phone verification and details for forms on Profile; Google sign-in app published so any Google account can sign in. |

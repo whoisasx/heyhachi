@@ -2,7 +2,7 @@
 
 Manual end-to-end runs against the deployed app (real Claude, real browser). Run before the demo and after any risky change. Each row says what to do, what should happen, and what it proves.
 
-Status: **first live run on 2026-11-05** (results below). Automated coverage of the same logic: 83 backend tests (`cd backend && uv run pytest`).
+Status: **first live run on 2026-11-05** (results below). Automated coverage of the same logic: 114 backend tests (`cd backend && uv run pytest`).
 
 | # | Task | Expected | Proves |
 |---|---|---|---|
@@ -15,7 +15,7 @@ Status: **first live run on 2026-11-05** (results below). Automated coverage of 
 | 7 | Paste an API key into the chat box | Blocked with a "use the secure input" message; not stored | Secret detection in chat |
 | 8 | Swiggy: "repeat my last order" (Indian proxy, automatic for swiggy.com) | OTP card → cart ready → Confirm card with item and total → stops before paying | SMS OTP, confirmation before irreversible steps |
 | 9 | Reject the Confirm card in #8 | "Okay, I won't" and nothing ordered | User stays in control |
-| 10 | Revoke Swiggy on Connected accounts while #8 runs | Task stops with "You revoked access…"; next Swiggy task asks to connect again | Revocation stops running work |
+| 10 | Revoke Swiggy on the Vault page while #8 runs | Task stops with "You revoked access…"; next Swiggy task asks to connect again | Revocation stops running work |
 | 11 | Leave an OTP or Confirm card unanswered for 10 min | Task fails with "I paused…"; **Resume** shows a fresh card and continues | Waiting timeout + resume from checkpoint |
 | 12 | Restart the backend while a task is running | Task continues ("Hit a hiccup, picking up where I left off") | Crash recovery |
 | 13 | Restart the backend right after approving an order | On recovery the site is checked read-only; the order is never placed twice | Idempotency markers |
@@ -50,6 +50,6 @@ Status: **first live run on 2026-11-05** (results below). Automated coverage of 
 - Replies render Markdown (bold, lists, tables, links open in a new tab).
 - Send shows the message right away with "Sending…".
 - A browser's live view hides once that browser closes.
-- Requests time out after 20 s with an error and a "Try again" button (chat and Connected accounts) instead of loading forever.
+- Requests time out after 20 s with an error and a "Try again" button (chat and Vault) instead of loading forever.
 - Follow-up tasks get a short note of the tools behind earlier replies, so they no longer falsely "correct" checked answers or re-ask answered questions.
 - Not fixed: Swiggy runs are long (30+ steps) and can hit the $1 task limit.

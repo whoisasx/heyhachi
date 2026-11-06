@@ -2,7 +2,7 @@
 
 A chat assistant that does tasks on real websites using a background cloud browser, and manages the user's access to those sites safely (passwords, 2FA, OTPs, API keys, saved sessions, revocation).
 
-Status: phases 4.1–4.6 done (backend skeleton, orchestrator, browser tool on local Chrome, vault, frontend, reliability). Google sign-in works locally. Next: 4.7 ship.
+Status: all phases done and deployed at https://heyhachi.vercel.app. Left: the demo video.
 
 ---
 
@@ -34,7 +34,7 @@ Keys go in `.env` (git-ignored). See `.env.example` for the full list. Never pas
 |---|---|---|
 | Anthropic API | Orchestrator + browser agent LLM | Set a monthly spending limit |
 | Browser Use Cloud | Cloud Chrome, live view, proxies | $5 minimum top-up; set `max_steps` per task |
-| Google OAuth client | App sign-in (Auth.js) | Consent screen in testing mode only allows added test users |
+| Google OAuth client | App sign-in (Auth.js) | Published (in production), so any Google account can sign in |
 | Postgres | Database | Railway Postgres in production (Neon also works) |
 | Railway (or Render/Fly) | Backend hosting | Must be a long-running server, not serverless |
 | Vercel | Frontend hosting | |
@@ -109,9 +109,10 @@ Checked by 10 new tests (78 in total), including "crash mid-order, resume: the o
 Note: a normal (not irreversible) step that was in progress during a crash can run again; that's fine.
 Already in place from earlier phases: crash recovery on startup (4.1), step and cost limits (4.2), confirmations (4.4), result checks by browser-use's judge (4.3).
 
-**4.7 (in progress).** Done so far: `BROWSER_BACKEND=cloud` runs tasks and "log in myself" on Browser Use Cloud (live view URL shown in the chat, optional proxy country; India is supported, which settles the Swiggy question); backend `Dockerfile` (migrates, then serves; no Chrome inside; one replica only) checked locally; production refuses to start without its keys; frontend production build passes; [RELIABILITY.md](RELIABILITY.md) test list and [ACCESS.md](ACCESS.md) note written.
-Deployed 2026-11-05: frontend https://browser-agent-drab.vercel.app (Vercel), backend on Railway with Railway Postgres (not Neon: one account fewer, private network), Browser Use Cloud browsers (checked: a cloud browser opened a page and returned a live view URL). Production secrets are new (not the dev ones) and live only in the hosts and the private notes file. The Google client has the production redirect URI.
-Left: confirm Google sign-in on the live site, run the test list, demo video.
+**4.7 (done).** Done so far: `BROWSER_BACKEND=cloud` runs tasks and "log in myself" on Browser Use Cloud (live view URL shown in the chat, optional proxy country; India is supported, which settles the Swiggy question); backend `Dockerfile` (migrates, then serves; no Chrome inside; one replica only) checked locally; production refuses to start without its keys; frontend production build passes; [RELIABILITY.md](RELIABILITY.md) test list and [ACCESS.md](ACCESS.md) note written.
+Deployed 2026-11-05: frontend on Vercel (first at browser-agent-drab.vercel.app, now https://heyhachi.vercel.app), backend on Railway with Railway Postgres (not Neon: one account fewer, private network), Browser Use Cloud browsers (checked: a cloud browser opened a page and returned a live view URL). Production secrets are new (not the dev ones) and live only in the hosts and the private notes file. The Google client has the production redirect URI.
+Live test run done 2026-11-05 (results in [RELIABILITY.md](RELIABILITY.md)); Google sign-in works on the live site and the Google app is published.
+After that: rebrand to **Hachi** with the domain https://heyhachi.vercel.app (the old URL still works and the backend accepts both), phone verification on the Profile page (Firebase Phone Auth), details for forms (encrypted, used as placeholders), a UX review ([UX-REVIEW.md](UX-REVIEW.md)) and its fixes, and Hachi the pet.
 
 ### Testing approach
 
@@ -123,7 +124,7 @@ Left: confirm Google sign-in on the live site, run the test list, demo video.
 
 ## Deliverables (from the assignment)
 
-- [ ] Runnable repo
-- [x] Deployed link: https://browser-agent-drab.vercel.app
+- [x] Runnable repo: https://github.com/whoisasx/heyhachi (setup in the README)
+- [x] Deployed link: https://heyhachi.vercel.app
 - [ ] ~2-minute demo video (script: [DEMO.md](DEMO.md))
-- [ ] Short note on access-management choices and known limits
+- [x] Short note on access-management choices and known limits: [ACCESS.md](ACCESS.md)

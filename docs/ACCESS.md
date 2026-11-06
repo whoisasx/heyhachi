@@ -14,6 +14,8 @@ A short note on how the assistant handles the user's access to websites, why, an
 
 **The user stays in control.** Anything irreversible (pay, order, send, delete) needs an Approve card with the exact details. A crash around such an action never repeats it: the site is checked first, and the user approves again. Revoking a site deletes its credentials and session, stops running tasks using it, and is written to the audit log. Every use of a credential or session is logged.
 
+**Personal details are placeholders too.** The phone number is verified with Firebase (Google sends the SMS); the backend checks the token and keeps only the encrypted number. Details for forms (name, birthday, email, address) are typed into the task's site as placeholders the model never sees; only the ones it has to pick from a list (city, state, country, gender, food preference) are shown to it.
+
 **Fresh browser per task.** Each task gets a new browser (local Chrome in development, Browser Use Cloud in production) loaded with only that site's saved login, closed afterwards.
 
 ## Known limits
@@ -26,4 +28,4 @@ A short note on how the assistant handles the user's access to websites, why, an
 - **Bot checks and CAPTCHAs** aren't bypassed; the task stops and says so. Some sites need a proxy country; it's set per site (India for Swiggy only).
 - **Single backend process.** Tasks live in one process; restarts are recovered from checkpoints, but scaling out needs a job queue.
 - **No per-site permission scopes.** Access to a site is all-or-nothing; there's no "read-only" grant yet.
-- **Google sign-in for the app is in testing mode**, so only listed test users can sign in.
+- **Google sign-in shows an "unverified app" notice** until Google verifies the app (it only asks for name and email).
