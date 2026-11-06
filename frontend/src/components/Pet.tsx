@@ -108,6 +108,8 @@ export function Pet() {
   const [sparkles, setSparkles] = useState<{ id: number; x: number; y: number }[]>([]);
   const box = useRef<HTMLDivElement>(null);
   const face = useRef<Face>(1);
+  // whether Hachi is on screen; kept across roam on/off so it glides over instead of jumping
+  const onStage = useRef(false);
 
   /** Where Hachi actually is right now, even mid-glide. */
   const now = () => {
@@ -124,7 +126,6 @@ export function Pet() {
     let goal: Spot | null = null;
     let mode: "wander" | "pace" | null = null; // strolling about rather than sitting at a spot
     let restUntil = 0;
-    let shown = false;
 
     /** Glide straight to a spot, still sitting. Returns the time it takes. */
     const glide = (to: Spot) => {
@@ -147,15 +148,15 @@ export function Pet() {
     const tick = () => {
       const t = target(roam);
       if (t === null) {
-        if (shown) {
+        if (onStage.current) {
           steps.forEach(clearTimeout);
           setView((v) => v && { ...v, shown: false, gliding: false, ms: 0 });
         }
-        shown = false;
+        onStage.current = false;
         goal = null;
-      } else if (!shown) {
+      } else if (!onStage.current) {
         const spot = t === "wander" ? randomSpot() : "x1" in t ? paceSpot(t) : t;
-        shown = true;
+        onStage.current = true;
         goal = spot;
         mode = t === "wander" ? "wander" : "x1" in t ? "pace" : null;
         restUntil = Date.now() + 2500;
