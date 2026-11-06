@@ -634,7 +634,9 @@ function PetSwitch() {
         className="-mx-1 flex flex-1 items-center gap-2.5 rounded-md px-1 py-0.5 hover:bg-sunk"
         title={shown ? "Hide Hachi" : "Show Hachi"}
       >
-        <Paw size={16} className={shown ? "text-accent" : "text-muted"} />
+        <span data-pet-end="paw" className="grid place-items-center">
+          <Paw size={16} className={shown ? "text-accent" : "text-muted"} />
+        </span>
         <span className={`flex flex-1 items-baseline gap-1.5 text-left ${shown ? "" : "text-muted"}`}>
           Hachi
           {roaming && <span className="text-[0.7rem] text-accent">roaming</span>}
@@ -648,6 +650,7 @@ function PetSwitch() {
         type="button"
         aria-pressed={roaming}
         aria-label="Let Hachi roam"
+        data-pet-end="dog"
         title={roaming ? "Hachi is roaming. Click to let it sit." : "Let Hachi roam"}
         onClick={() => setRoam(!roam)}
         disabled={!shown}

@@ -64,7 +64,8 @@ interface Pace {
 /**
  * Where Hachi should be: a spot, a strip to pace, "wander", or null (nowhere to be, so hide).
  * On the chat page: the chat box, or (roaming) beside the open chat / anywhere.
- * Elsewhere (Vault, Profile): on top of the "Let Hachi roam" switch, pacing along it when roaming.
+ * Elsewhere (Vault, Profile): on the sidebar's Hachi row, sitting over the paw, or (roaming)
+ * pacing the whole row, from the paw to the little dog button.
  */
 function target(roam: boolean): Spot | Pace | "wander" | null {
   const box = document.querySelector('[data-pet="composer"]')?.getBoundingClientRect();
@@ -78,9 +79,16 @@ function target(roam: boolean): Spot | Pace | "wander" | null {
   }
   const sw = document.querySelector('[data-pet="switch"]')?.getBoundingClientRect();
   if (!sw || !sw.width || sw.left < 0) return null; // phone menu closed
+  const mid = (el: Element | null | undefined, fallback: number) => {
+    const r = el?.getBoundingClientRect();
+    return r && r.width ? r.left + r.width / 2 : fallback;
+  };
+  const row = document.querySelector('[data-pet="switch"]');
+  const paw = mid(row?.querySelector('[data-pet-end="paw"]'), sw.left + 18);
+  const dog = mid(row?.querySelector('[data-pet-end="dog"]'), sw.right - 18);
   const y = sw.top + 2;
-  if (!roam) return { x: sw.left + 72, y, scale: 0.72 };
-  return { x1: sw.left + 28, x2: sw.right - 28, y, scale: 0.72 };
+  if (!roam) return { x: paw, y, scale: 0.72 };
+  return { x1: paw, x2: dog, y, scale: 0.72 };
 }
 
 function randomSpot(): Spot {
@@ -91,13 +99,12 @@ function randomSpot(): Spot {
   };
 }
 
-/** Somewhere along the strip, a fair way from where Hachi is now. */
+/** Near the far end of the strip from where Hachi is now, so each stroll crosses the whole row. */
 function paceSpot(p: Pace, fromX?: number): Spot {
   const mid = (p.x1 + p.x2) / 2;
-  const half = Math.max(0, (p.x2 - p.x1) / 2);
-  // head for the other half of the strip, so every stroll is a real one
-  const start = fromX === undefined ? p.x1 : fromX < mid ? mid : p.x1;
-  return { x: start + Math.random() * half, y: p.y, scale: p.scale };
+  const slack = Math.max(0, (p.x2 - p.x1) * 0.15) * Math.random();
+  const x = fromX === undefined ? p.x1 + Math.random() * (p.x2 - p.x1) : fromX < mid ? p.x2 - slack : p.x1 + slack;
+  return { x, y: p.y, scale: p.scale };
 }
 
 const far = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.abs(a.x - b.x) > 3 || Math.abs(a.y - b.y) > 3;
